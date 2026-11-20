@@ -1,0 +1,184 @@
+name: artifacts-publish
+
+# THE PINNED INPUTS THIS REPOSITORY'S STAGES FETCH, MIRRORED INTO ITS OWN PACKAGE.
+#
+# SPLIT OUT OF easydev-org/easyvm, WHICH MIRRORED EVERY OPERATING SYSTEM'S ASSETS INTO ONE PACKAGE.
+# That worked while every stage lived in one repository; it stopped being right the day they did not.
+# A package a repository PUSHES to is the package its own token can write, and an asset layer with one
+# place to look per operating system is one where a wrong tag names the repository that is wrong.
+#
+# WHY MIRROR AT ALL: the vendors serve these at a fraction of ghcr's rate - SourceForge answered
+# BlissOS at 0.5 MB/s on the measurement that produced the pin, and a CI run was cancelled at exactly
+# 1h0m0s with the ISO at 92%. The same bytes from ghcr arrive in about a minute.
+
+on:
+  workflow_dispatch:
+    inputs:
+      group:
+        description: "Which group to publish"
+        type: choice
+        options:
+          - all
+          - linux
+        default: all
+      disks_repository:
+        description: >-
+          The ghcr package the pinned inputs are MIRRORED INTO. Empty means THIS repository, which is
+          what every caller wants: a token can only write to the package its own repository holds.
+        default: ""
+      which:
+        description: "One exact tag, overriding `group`. Empty publishes the whole group."
+        default: ""
+      keep:
+        description: "Keep the downloaded files on the runner"
+        type: boolean
+        default: false
+
+concurrency:
+  group: artifacts-publish-${{ github.ref }}-${{ inputs.which }}-${{ inputs.group }}
+  cancel-in-progress: false
+
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact:
+          - { tag: "iso-ubuntu-desktop", group: "linux", url: "https://releases.ubuntu.com/26.04/ubuntu-26.04.1-desktop-amd64.iso", sha: "601e30fbf5d97759367c632e2c33630665039b7e2158fd068403da3ccf1bda1f", size: "6482409472" }
+          - { tag: "iso-kubuntu-desktop", group: "linux", url: "https://cdimage.ubuntu.com/kubuntu/releases/26.04/release/kubuntu-26.04.1-desktop-amd64.iso", sha: "831e4d4bb85098339ba43d3502cd6619b27e76daf37246a084cd68a6413090b8", size: "5072990208" }
+          - { tag: "iso-fedora-workstation", group: "linux", url: "https://dl.fedoraproject.org/pub/fedora/linux/releases/45/Workstation/x86_64/iso/Fedora-Workstation-Live-45-1.4.x86_64.iso", sha: "68338c6bfe4f0d64151f2e47efe9f44a8855ad05b460e56b844fb3fa2c9a3beb", size: "2925092864" }
+          - { tag: "iso-mint-cinnamon", group: "linux", url: "https://mirrors.kernel.org/linuxmint/stable/22.3/linuxmint-22.3-cinnamon-64bit.iso", sha: "a081ab202cfda17f6924128dbd2de8b63518ac0531bcfe3f1a1b88097c459bd4", size: "3091660800" }
+          - { tag: "iso-opensuse-leap-16.1", group: "linux", url: "https://download.opensuse.org/distribution/leap/16.1/offline/Leap-16.1-offline-installer-x86_64.install.iso", sha: "c95738ba232a36eb31dfdf3e5f663beb672232410894ab04b1bfe0c7a803a622868a90fe631fc6c89418eca9ad181979b8817a52fdec3c203a9a5b7b997ba051", size: "4516216832" }
+          - { tag: "iso-cachyos-desktop", group: "linux", url: "https://mirror.cachyos.org/ISO/desktop/260809/cachyos-desktop-linux-260809.iso", sha: "959f6577f45e25ee9fd8c220fd221b08e4ea79412c7315c0f922dd6d86d5e33c", size: "3188850688" }
+          - { tag: "iso-manjaro-kde", group: "linux", url: "https://download.manjaro.org/kde/26.1.0/manjaro-kde-26.1.0-260812-linux71.iso", sha: "711b64362abe0b45348dc33bd4a2c654641e069b50ae9ae37c01771da880aa99", size: "5534201856" }
+          - { tag: "iso-endeavouros", group: "linux", url: "https://mirror.alpix.eu/endeavouros/iso/EndeavourOS_Titan-Nova-2026.08.15.iso", sha: "0487f46fe29e0ab2ed153ba874568cc542a0507fb6029f29ad552b36ba447393", size: "3898638336" }
+          - { tag: "iso-zorin-core", group: "linux", url: "https://mirrors.edge.kernel.org/zorinos-isos/18/Zorin-OS-18.1-Core-64-bit.iso", sha: "44649b97bd307fc4c8529205d098ebbf98575a1e1ba2ee7d7005b697af1721d5", size: "3909091328" }
+          - { tag: "iso-mx-xfce", group: "linux", url: "https://netix.dl.sourceforge.net/project/mx-linux/Final/Xfce/MX-25.3_Xfce_x64.iso", sha: "25b5ce20caeee1b0e50507291df5ac8a8211b1b9999d8dd7416da9b66ed9fbf9", size: "2927624192" }
+          - { tag: "iso-popos-desktop", group: "linux", url: "https://iso.pop-os.org/24.04/amd64/intel/10/pop-os_24.04_amd64_intel_10.iso", sha: "a5b7321babdef75d86c688d3429fbd5525689d80a1a8b94bc393eea84f372b62", size: "2583691264" }
+          - { tag: "iso-nixos-graphical", group: "linux", url: "https://releases.nixos.org/nixos/26.05/nixos-26.05.13627.c56a87d8e41c/nixos-graphical-26.05.13627.c56a87d8e41c-x86_64-linux.iso", sha: "62900e47b6bea0917c491ac0a8e18dd4e3b7579d9b60ee8e0bbbd8945162256d", size: "3888513024" }
+    # NO `if:` HERE, AND THAT IS NOT AN OVERSIGHT: A JOB-LEVEL `if:` CANNOT SEE `matrix`.
+    #
+    # GitHub evaluates a job's `if:` before the matrix is expanded, so `matrix.artifact.tag` is empty
+    # there and the condition silently reads as false for every row - a run with zero jobs and no log
+    # line. MEASURED, and it is what the repository's own workflow test refuses.
+    #
+    # SELECTION GOES IN THE MATRIX INSTEAD, which IS evaluated per row. The generator that wrote this
+    # file reads the catalogue and the three inputs, so a re-run of one artifact is:
+    #
+    #	gh workflow run artifacts-publish.yml -f tag=iso-windows11
+    #
+    # and the matrix then holds one row. The cost is that the row list is written out at generation
+    # time rather than computed at run time - which a catalogue in a heredoc was already doing.
+    steps:
+      - uses: actions/checkout@v4
+
+      # A ROW THAT WAS NOT ASKED FOR EXITS BEFORE IT DOWNLOADS ANYTHING.
+      #
+      # THE COMMENT ABOVE THIS JOB USED TO SAY A RE-RUN OF ONE ARTIFACT WAS `-f which=iso-windows11`
+      # "because the matrix then holds one row". IT DID NOT: the matrix is a literal list written
+      # into this file, nothing reads `which` or `group`, and `-f which=iso-freebsd` started
+      # SEVENTEEN DOWNLOADS AND FIFTY-ONE GIBABYTES - measured on run 44298764450, cancelled after
+      # the jobs came up. A selection input that is declared and never read is worse than none: it
+      # reads like a filter and behaves like "everything".
+      #
+      # THE GUARD IS A STEP RATHER THAN A JOB `if:` FOR THE REASON THE COMMENT BELOW ALREADY GIVES:
+      # GitHub evaluates a job's `if:` BEFORE the matrix is expanded, so `matrix.artifact.tag` is
+      # empty there and every row would read as false.
+      - name: is this row wanted
+        id: wanted
+        env:
+          WHICH: ${{ inputs.which }}
+          GROUP_INPUT: ${{ inputs.group }}
+          ROW_TAG: ${{ matrix.artifact.tag }}
+          ROW_GROUP: ${{ matrix.artifact.group }}
+        run: |
+          set -eu
+          if [ -n "${WHICH:-}" ]; then
+            if [ "$ROW_TAG" = "$WHICH" ]; then
+              echo "wanted=yes" >> "$GITHUB_OUTPUT"
+            else
+              echo "wanted=no" >> "$GITHUB_OUTPUT"
+              echo "skipped: asked for $WHICH, this row is $ROW_TAG"
+            fi
+            exit 0
+          fi
+          if [ "${GROUP_INPUT:-all}" = "all" ] || [ "$ROW_GROUP" = "$GROUP_INPUT" ]; then
+            echo "wanted=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "wanted=no" >> "$GITHUB_OUTPUT"
+            echo "skipped: asked for group $GROUP_INPUT, this row is $ROW_GROUP"
+          fi
+
+      - name: prepare the runner
+        if: steps.wanted.outputs.wanted == 'yes'
+        # THE DISK IS THE POINT: the largest single input is 7.7 GiB and its hash pass reads it again,
+        # so a runner with a 14 GiB volume fails halfway through the Windows image.
+        uses: easydev-org/easyactions/runner-check@main
+        with:
+          kvm: false
+          disk-gb: '25'
+          token: ${{ github.token }}
+
+      - name: download and verify
+        if: steps.wanted.outputs.wanted == 'yes'
+        # THE PER-ARTIFACT RULE LIVES IN ONE SCRIPT, because it is fifteen comments long and a matrix
+        # row should be readable. It downloads, checks the pin by ITS OWN LENGTH, and fails with the
+        # numbers when they differ.
+        id: fetch
+        env:
+          GROUP: ${{ matrix.artifact.group }}
+          # EMPTY HERE IS NOT "NO OPINION": `internal/asset` falls back to `easydev-org/easyvm` when
+          # this is unset, which is the product's package and not writable with this token. So the
+          # default is spelled out as this repository rather than left to the fallback.
+          DISKS_REPOSITORY: ${{ inputs.disks_repository || github.repository }}
+        run: |
+          set -eu
+          path=$(sh scripts/mirror-one.sh \
+                   "${{ matrix.artifact.tag }}" \
+                   "${{ matrix.artifact.url }}" \
+                   "${{ matrix.artifact.sha }}" \
+                   "${{ matrix.artifact.size }}")
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: push
+        if: steps.wanted.outputs.wanted == 'yes'
+        # THE TRANSFER IS THE ACTION THAT KNOWS THE REGISTRY: it installs oras idempotently, logs in
+        # explicitly, and refuses a push whose bytes are identical to an earlier artifact.
+        uses: easydev-org/easyactions/oci-push@main
+        with:
+          path: ${{ steps.fetch.outputs.path }}
+          tag: ${{ matrix.artifact.tag }}
+          repository: ${{ inputs.disks_repository || github.repository }}
+          media-type: application/vnd.easydev.artifact
+          token: ${{ github.token }}
+          check-name: mirror-${{ matrix.artifact.tag }}
+
+  # APPLE'S RECOVERY IMAGE IS THE ONE INPUT THAT CANNOT BE A CATALOGUE ROW.
+  #
+  # Every other upstream here is one HTTP GET. This one is a session cookie, a five-field POST with
+  # opaque nonces, a token exchange, and then a CDN download that has to be parallel or it is cut
+  # short - Apple does not serve it as one request:
+  #
+  #	curl: (18) end of response with 887566699 bytes missing
+  #
+  # and every request produces a DIFFERENT URL AND TOKEN, so there is nothing stable to pin.
+  #
+  # SO IT IS A TRANSFER BETWEEN TWO PACKAGES RATHER THAN A DOWNLOAD: the file is the same bytes, one
+  # copy is already published under `macos-recovery-<name>`, and this mirrors it into THIS
+  # repository's package so the asset layer has one place to look. A pull and a push, both through the
+  # organisation's actions.
+  #
+  # ONE ROW PER macOS RELEASE, AND `tahoe` WAS MISSING FROM THIS JOB. `internal/asset` has resolved
+  # release 26 to the tag `macos-recovery-tahoe` since that table was written, and the publisher had
+  # only ever mirrored `sequoia` - so the image a 26 stage requires was in `easydiskbake` and in no
+  # repository this build reads. The failure mode of the omission is the one this project keeps
+  # paying for: a 404 in somebody's first step, naming a tag that looks like a typo.
+  #
+  # THE SOURCE IS THE PUBLISHER'S OWN PACKAGE for both rows. `sequoia` was mirrored from THIS
+  # repository before (it had been copied here once by hand); pulling both from `easydiskbake` makes
+  # the two rows the same shape and leaves one origin for every Apple image.
