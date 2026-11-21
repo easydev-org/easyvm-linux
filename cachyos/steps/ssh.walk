@@ -177,8 +177,28 @@ walkthrough "linux-cachyos - sshd"
   # `SCREEN_KEPT_ON` runs straight into `ECHO ADMIN` with no line break: the Return after the first
   # command went to the OTHER window. And the `xset -dpms` failure - "server does not have extension
   # for -dpms option" - is harmless; the screen is still kept awake by `s off` and `s noblank`.
+  # THE SCREEN IS KEPT AWAKE BY A STEP OF ITS OWN, BEFORE ANYTHING ELSE TYPES.
+  #
+  # MEASURED ON RUN 44933304315, whose ssh recording ENDS ON A PURE BLACK FRAME and whose log is
+  # the failure in seven lines:
+  #
+  #	=== wait for the desktop   similarity 0.9995 (want 0.90..1.00)   <- THE LOGIN WORKED
+  #	=== open the terminal
+  #	=== install openssh
+  #	=== prove sshd is active
+  #	=== wait for sshd          10 minutes of "connection refused"
+  #
+  # Every step after `open the terminal` did nothing. `xset s off; xset s noblank` WAS the first thing
+  # on the `install openssh` line - but that line is typed as one keystroke stream into a terminal
+  # whose screen has already blanked, so the characters that would wake it are the ones being
+  # discarded. The sibling distros that pass (ubuntu, mx) put `xset` in a STEP, on its own, and wait
+  # for it before anything else is typed; this file had it buried in the next command.
+  step "keep the screen on"
+    run == xset s off; xset -dpms; xset s noblank
+    settle == 5
+    terminal_wait == 0
   step "install openssh"
-    run == xset s off; xset s noblank; echo {{ password }} | sudo -S pacman -Sy --noconfirm --needed openssh 2>&1 | tail -5
+    run == echo {{ password }} | sudo -S pacman -Sy --noconfirm --needed openssh 2>&1 | tail -5
     settle == 45
     terminal_wait == 0
   step "allow password authentication"
