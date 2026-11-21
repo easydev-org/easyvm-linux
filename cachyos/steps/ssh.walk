@@ -54,22 +54,38 @@ walkthrough "linux-cachyos - sshd"
   # `wait for the desktop` on a machine that had never been logged into. Its recording at 90 s is SDDM's
   # clock lock screen, which is what "no desktop" looks like from the inside.
   #
-  # ONE INNER SET MEANS BOTH. `wordSetsOfValue` reads a FLAT `[a, b]` as two one-word sets - "any of
-  # a or b", which is the same mistake in a shorter spelling - so the words go inside their own list:
-  # `[[password, vmuser]]` is ONE set, and `says` requires every word of a set.
+  # "password" IS NOT ON THIS SCREEN, AND DEMANDING IT COST FOUR MINUTES.
+  #
+  # MEASURED ON RUN 44929103832, whose recording is the evidence:
+  #
+  #	30 s   the greeter fully drawn - the vmuser tile and a focused Password box
+  #	60 s   SDDM's clock-only lock screen: the greeter has timed out and gone back to sleep
+  #
+  # and whose daemon log shows the reader never seeing the box's text at all:
+  #
+  #	see: 4 word(s): hs vmuser ES £3
+  #
+  # "Password" IS A PLACEHOLDER INSIDE A WHITE INPUT FIELD - the same thing that makes it unreadable
+  # at scale 1 in the sibling walkthroughs. A loop waiting for both words could only ever time out,
+  # and while it waited SDDM's own timeout put the screen back to the clock.
+  #
+  # SO THE GREETING IS RECOGNISED BY THE ONE WORD THAT IS PRINTED LARGE, and the guards after it ask
+  # the same question the loop does - which is the defect the first fix addressed from the other side:
+  # the loop and its `when:` guards must agree, or the clicks are skipped by a screen the loop
+  # accepted.
   step "the greeter is drawn"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password, vmuser]]}, do: [{settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
+    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [vmuser]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
   step "greeter - the user tile"
-    when == [password, vmuser]
+    when == vmuser
     click == [960, 488]
   step "greeter - the password box"
-    when == [password, vmuser]
+    when == vmuser
     clear == false
     click == [936, 628]
-    settle == 4
+    settle == 3
     type == '{{ password }}'
   step "greeter - submit"
-    when == [password, vmuser]
+    when == vmuser
     key == ret
     settle == 12
   # `desktop: linux/kde` AND NOT `desktop: linux`: THE BARE FAMILY TESTS FOR A PANEL THAT IS AT LEAST
