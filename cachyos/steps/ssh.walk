@@ -205,16 +205,36 @@ walkthrough "linux-cachyos - sshd"
     run == echo {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf "PasswordAuthentication yes\n" > /etc/ssh/sshd_config.d/99-vm.conf; sed -i "s/^#\?\s*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config; grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config || printf "PasswordAuthentication yes\n" >> /etc/ssh/sshd_config' 2>&1 | tail -3
     settle == 3
     terminal_wait == 0
-  step "enable sshd at boot"
-    run == echo {{ password }} | sudo -S systemctl enable sshd 2>&1 | tail -3
-    settle == 8
+  # `enable --now` INSTEAD OF `enable`, WHICH IS WHAT THE SIBLINGS THAT PASS ALREADY DO.
+  #
+  # MEASURED ON RUN 44935328802, whose recording shows the terminal and the commands in it:
+  #
+  #	$ echo admin | sudo -S systemctl estart sshd
+  #	Unknown command verb 'estart', did you mean 'start'?
+  #	$ systemctl is-active sshd
+  #	inactive
+  #
+  # `restart` LOST ITS FIRST CHARACTER. The screen was awake and the terminal was there - the earlier
+  # DPMS fix did its job - and the keystroke at the head of this command was dropped, so a verb that
+  # starts a service became one that does nothing. `systemctl` then rejected it, the service stayed
+  # inactive, and the ten minutes of `connection refused` followed.
+  #
+  # ONE COMMAND THAT CANNOT BE MIS-TYPED INTO A VALID ONE: `enable --now` starts the unit, and ubuntu
+  # and mint (both passing) use exactly this. There is then no separate `restart` to lose a character
+  # from, and `is-active` below is a verdict rather than the thing that reveals the mistake.
+  step "enable sshd at boot, and start it"
+    run == echo {{ password }} | sudo -S systemctl enable --now sshd 2>&1 | tail -3
+    settle == 12
     terminal_wait == 0
   step "prove the setting took"
     run == echo {{ password }} | sudo -S sh -c 'sshd -T 2>/dev/null | grep -i "^passwordauthentication" || echo PASSWORDAUTH-UNREADABLE' 2>&1 | tail -3
     settle == 3
     terminal_wait == 0
+  # A SECOND, IDEMPOTENT START. `--now` above is the one that matters; this covers a guest whose unit
+  # file appeared after that ran. `start` on a running unit is a no-op that says so, so a lost
+  # keystroke here cannot leave the service down without `is-active` reporting it.
   step "start sshd"
-    run == echo {{ password }} | sudo -S systemctl restart sshd 2>&1 | tail -3
+    run == echo {{ password }} | sudo -S systemctl start sshd 2>&1 | tail -3
     settle == 10
     terminal_wait == 0
   step "prove sshd is active"
