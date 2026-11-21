@@ -57,6 +57,7 @@ jobs:
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      disk_gb: "20"
       group: ubuntu
       disks_repository: ${{ inputs.disks_repository }}
       stages: |
@@ -79,6 +80,7 @@ jobs:
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      disk_gb: "20"
       group: ubuntu
       disks_repository: ${{ inputs.disks_repository }}
       stages: |
@@ -100,6 +102,7 @@ jobs:
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      disk_gb: "20"
       group: ubuntu
       disks_repository: ${{ inputs.disks_repository }}
       stages: |
