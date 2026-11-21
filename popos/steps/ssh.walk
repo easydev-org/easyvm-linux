@@ -38,18 +38,34 @@ walkthrough "linux-popos - sshd"
     settle == 2
     type == '{{ password }}'
   press Return, waiting 20s, named "submit the passphrase"
+  # THE FIELD IS AT (1165, 227), NOT (1120, 283) - THE CLICK LANDED 56 PIXELS BELOW IT.
+  #
+  # MEASURED ON RUN 44939896523, whose last frame is the greeter with its own error on it:
+  #
+  #	VM User   [ Password: ]   pam_authenticate: AUTH_ERR
+  #
+  # The card's password row spans x 1030..1300 and y 205..250 - read off that frame - so its centre
+  # is (1165, 227). The old coordinate was (1120, 283): below the field, on the card's body. The
+  # click therefore never focused the input, the `type:` after it went to the window rather than the
+  # field, and PAM reported what it always reports for an empty password.
+  #
+  # AND THE THREE `when: [password, vmuser]` GUARDS COULD NOT HAVE CAUGHT IT: nothing binds a fact by
+  # those names, so they never gated anything. The greeter is recognised here by what it prints.
   step "greeter - the password box"
-    when == [password, vmuser]
-    click == [1120, 283]
+    loop == {check: {from: greeter, mode: text, name: up, rect: [1010, 200, 1310, 255], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 30, see: {name: greeter}, until: {fact: up}}
+  step "greeter - focus the field"
+    click == [1165, 227]
   step "greeter - log in"
-    when == [password, vmuser]
     settle == 3
     type == '{{ password }}'
   step "greeter - submit"
-    when == [password, vmuser]
     key == ret
     settle == 12
-  click "open the terminal" at 1092 1048, waiting 20s, named "open the terminal"
+  # `ctrl+alt+t`, LIKE EVERY PASSING SIBLING, INSTEAD OF A CLICK ON A TASKBAR ICON.
+  #
+  # The old line clicked (1092, 1048) - one item in pop's dock, at a position that depends on which
+  # icons that install decided to put there. A shortcut the window manager handles does not.
+  press ctrl+alt+t, waiting 20s, named "open the terminal"
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
