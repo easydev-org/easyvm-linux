@@ -73,7 +73,13 @@ walkthrough "linux-zorin - sshd"
     click == [960, 486]
     settle == 6
   step "the password box is drawn"
-    loop == {check: {from: pwbox, mode: text, name: box, rect: [520, 560, 1400, 700], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 20, see: {name: pwbox}, until: {fact: box}}
+    # THE BAND IS THE INPUT FIELD ITSELF, NOT THE CARD AROUND IT.
+    #
+    # MEASURED on this run's own frame: the wide rectangle (520,560 .. 1400,700) reads back only
+    # "VM User" - the big name above the box - because the reader returns the largest text block it
+    # finds. The field's own row (810,608 .. 1115,650) reads "Password oO |". A band that can see two
+    # things and reports the wrong one is a band that will fail on a screen that is perfectly correct.
+    loop == {check: {from: pwbox, mode: text, name: box, rect: [810, 605, 1120, 655], rect_at: [1920, 1080], scale: 3, words: [[password]]}, do: [{settle: 3}], max: 20, see: {name: pwbox}, until: {fact: box}}
   step "greeter - type the password"
     click == [960, 627]
     settle == 3
