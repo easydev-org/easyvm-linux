@@ -75,17 +75,37 @@ walkthrough "linux-cachyos - sshd"
   # accepted.
   step "the greeter is drawn"
     loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [vmuser]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
+  # THE GUARD READS THE SAME BAND THE LOOP DID, OR IT IS ASKING ABOUT A DIFFERENT SCREEN.
+  #
+  # MEASURED ON RUN 44929782480 - the loop was satisfied on its first attempt and all three guards
+  # then skipped:
+  #
+  #	the greeter is drawn [check]: up = true (read "vmuser")          <- in the 740..1340 x 470..770 band
+  #	greeter - the user tile - when: 13 word(s): 12:45PM Saturday ... <- the WHOLE frame
+  #	skipped: the screen does not say "vmuser"
+  #
+  # `when:` RE-READS THE SCREEN rather than the loop's captured frame, and without a `rect:` it reads
+  # every pixel - where the tile's name is too small for the reader while the clock above it is not.
+  # The loop and the guards now read the same rectangle, so a screen the loop accepted is a screen its
+  # guards act on. That agreement is the whole defect: the login steps must not disagree with the check
+  # that decided the greeter was ready.
   step "greeter - the user tile"
     when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     click == [960, 488]
   step "greeter - the password box"
     when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     clear == false
     click == [936, 628]
     settle == 3
     type == '{{ password }}'
   step "greeter - submit"
     when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     key == ret
     settle == 12
   # `desktop: linux/kde` AND NOT `desktop: linux`: THE BARE FAMILY TESTS FOR A PANEL THAT IS AT LEAST
