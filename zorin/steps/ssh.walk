@@ -54,25 +54,31 @@ walkthrough "linux-zorin - sshd"
   #
   # And the guards carry the loop's own rectangle: a `when:` without `rect:` reads every pixel, where
   # the tile's name is too small - the fault that made cachyos skip its whole login.
-  step "the greeter is drawn"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [vmuser]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
-  step "greeter - the user tile"
-    when == vmuser
-    rect == [740, 470, 1340, 770]
-    rect_at == [1920, 1080]
-    click == [960, 488]
-  step "greeter - the password box"
-    when == vmuser
-    rect == [740, 470, 1340, 770]
-    rect_at == [1920, 1080]
-    clear == false
+  # THE GREETER SHOWS THE FULL NAME AND A USER-CHOOSER, NOT A PASSWORD BOX.
+  #
+  # MEASURED ON RUN 44948032400's zorin recording, at half its length: GDM draws ONE tile reading
+  #
+  #	VM User
+  #	Not listed?
+  #
+  # - the FULL name, not the account - with NO password field until the tile is clicked. So a loop
+  # waiting for the word `vmuser` can never be satisfied on this screen, and the previous version did
+  # exactly that for sixty attempts.
+  #
+  # THE TILE IS CLICKED FIRST (its box is x 800..1115, y 451..522 on this 1920x1080 frame, centre
+  # 960,486), and the password box is then waited for by the placeholder the siblings use.
+  step "the greeter's user tile is drawn"
+    loop == {check: {from: greeter, mode: text, name: up, rect: [800, 445, 1120, 528], rect_at: [1920, 1080], scale: 2, words: [[vm, user]]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
+  step "greeter - select the user"
+    click == [960, 486]
+    settle == 6
+  step "the password box is drawn"
+    loop == {check: {from: pwbox, mode: text, name: box, rect: [520, 560, 1400, 700], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 20, see: {name: pwbox}, until: {fact: box}}
+  step "greeter - type the password"
     click == [960, 627]
-    settle == 4
+    settle == 3
     type == '{{ password }}'
   step "greeter - submit"
-    when == vmuser
-    rect == [740, 470, 1340, 770]
-    rect_at == [1920, 1080]
     key == ret
     settle == 12
   # ZORIN'S FIRST-RUN "Start Tour" PANEL IS A MODAL THAT TAKES THE KEYBOARD, AND IT MUST GO FIRST.
