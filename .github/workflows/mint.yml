@@ -92,7 +92,7 @@ jobs:
 
   ssh:
     needs: [install]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-mint')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-mint')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:
@@ -114,7 +114,7 @@ jobs:
 
   vm:
     needs: [ssh]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-mint' || inputs.from_tag == 'linux-mint-ssh')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-mint' || inputs.from_tag == 'linux-mint-ssh')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:

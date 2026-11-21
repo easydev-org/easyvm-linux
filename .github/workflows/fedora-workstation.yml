@@ -92,7 +92,7 @@ jobs:
 
   ssh:
     needs: [install]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-fedora-workstation')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-fedora-workstation')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:
@@ -114,7 +114,7 @@ jobs:
 
   vm:
     needs: [ssh]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-fedora-workstation' || inputs.from_tag == 'linux-fedora-workstation-ssh')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-fedora-workstation' || inputs.from_tag == 'linux-fedora-workstation-ssh')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:

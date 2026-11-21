@@ -92,7 +92,7 @@ jobs:
 
   ssh:
     needs: [install]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-endeavour')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-endeavour')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:
@@ -114,7 +114,7 @@ jobs:
 
   vm:
     needs: [ssh]
-    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == 'linux-endeavour' || inputs.from_tag == 'linux-endeavour-ssh')
+    if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-endeavour' || inputs.from_tag == 'linux-endeavour-ssh')
     uses: easydev-org/easyvm/.github/workflows/stage.yml@main
     secrets: inherit
     with:
