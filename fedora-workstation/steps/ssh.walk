@@ -420,8 +420,18 @@ walkthrough "linux-fedora-workstation - sshd"
   # FIELD is waited for by its own words before anything is typed, and the terminal tile is waited
   # for before it is clicked. Every wait here is a fact on screen, not a sleep.
   press meta_l, waiting 4s, named "open the overview"
+  # THE LOOP ONLY LOOKS. ITS OLD `do:` TOGGLED THE OVERVIEW SHUT ON EVERY ATTEMPT.
+  #
+  # MEASURED ON RUN 44941741017, whose recording at the failing moment is the overview WITH its search
+  # field reading "Type to search" - exactly what this check waits for and exactly where its rectangle
+  # points. The check still failed ten times, because the `do:` pressed `esc` and then `meta_l` before
+  # each reading: the first closes the overview and the second reopens it, so every captured frame
+  # was taken on whichever side of the toggle it happened to land.
+  #
+  # A loop that presses a key to "help" a screen appear is a loop that can hold it away. This one only
+  # waits: `meta_l` above opened the overview, and nothing here may close it.
   step "the overview's search field is drawn"
-    loop == {check: {from: ov, mode: text, name: field, rect: [700, 35, 1250, 90], rect_at: [1920, 1080], scale: 2, words: [[type, to, search]]}, do: [{key: esc, settle: 2}, {key: meta_l, settle: 3}], max: 10, see: {name: ov}, until: {fact: field}}
+    loop == {check: {from: ov, mode: text, name: field, rect: [700, 35, 1250, 90], rect_at: [1920, 1080], scale: 2, words: [[type, to, search]]}, do: [{settle: 2}], max: 10, see: {name: ov}, until: {fact: field}}
   step "put the cursor in the search field"
     click == [960, 59]
     settle == 2
