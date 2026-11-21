@@ -141,6 +141,26 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
     run == sudo getent passwd vmuser; sudo ls -ld /home/vmuser; sudo su -s /bin/sh vmuser -c 'echo SHELL_OK; pwd'
     settle == 8
     terminal_wait == 0
+  # THE PASSWORD IS PROVEN LOCALLY BEFORE A SOCKET IS ASKED TO ACCEPT IT.
+  #
+  # MEASURED ON RUN 44941482196, whose terminal ends with the effective settings this stage itself
+  # printed:
+  #
+  #	passwordauthentication yes
+  #	usepam yes
+  #	kbdinteractiveauthentication yes
+  #
+  # - and whose next step still failed with `no supported methods remain`. Everything the server can
+  # control is right, so what is left is the CREDENTIAL: if the account's stored hash does not match
+  # this password, every method is refused and the message names none of them.
+  #
+  # `su` ASKS PAM THE SAME QUESTION without a socket, so its answer separates the two cases for the
+  # next run: SU_PASSWORD_OK means the credential is good and the fault is in sshd's session, and
+  # SU_PASSWORD_REJECTED means the disk does not hold this password at all.
+  step "prove the password works locally, before a socket is asked to accept it"
+    run == echo '{{ password }}' | su - vmuser -c 'echo SU_PASSWORD_OK' 2>&1 | tail -3
+    settle == 6
+    terminal_wait == 0
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
