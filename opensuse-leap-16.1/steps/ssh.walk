@@ -1,4 +1,4 @@
-walkthrough "linux-opensuse-tumbleweed - sshd"
+walkthrough "linux-opensuse-leap-16.1 - sshd"
   resolution 1920x1080
   # THE PASSWORD THIS DISK WAS BUILT WITH. `install.walk` sets it to Qz7vLp2w, and this file said
   # `admin` - a value that never existed on the guest.
@@ -360,6 +360,28 @@ walkthrough "linux-opensuse-tumbleweed - sshd"
   step "the PAM stack is complete"
     run == sudo sh -c 'test $(wc -l < /etc/pam.d/sshd) -eq 5 && grep -c include /etc/pam.d/sshd'
     settle == 3
+    terminal_wait == 0
+  # THE EFFECTIVE CONFIGURATION, PRINTED WHERE A PERSON CAN READ IT, BECAUSE THIS STAGE HAS NOW
+  # SPENT TEN MINUTES ON "connection refused" AND TEN MORE ON "no supported methods remain" WITHOUT
+  # EVER SAYING WHICH SETTING WAS WRONG.
+  #
+  # MEASURED ON RUN 44937306659: the terminal carried `sshd: no hostkeys available -- exiting` for
+  # every `sshd -T` invocation, so the stage's own dump of the effective settings printed nothing at
+  # all - the one command that would have named the cause refused to run before it had host keys.
+  #
+  # SO THE KEYS ARE GENERATED FIRST (idempotently - ssh-keygen leaves an existing key alone), and
+  # then the four settings this stage depends on are printed AND asserted. `UsePAM yes` is the one
+  # that matters here: openSUSE's sshd reads its configuration from /usr/etc, and a `UsePAM no`
+  # there makes the PAM stack written above irrelevant - the password is then checked against the
+  # shadow hash directly, and a guest whose hash this sshd cannot parse answers exactly what this
+  # run did: `attempted methods [none password keyboard-interactive], no supported methods remain`.
+  step "generate the host keys, so sshd -T can answer"
+    run == sudo ssh-keygen -A 2>&1 | tail -2; sudo ls -1 /etc/ssh/ssh_host_*_key
+    settle == 4
+    terminal_wait == 0
+  step "prove the four settings this stage needs, and say what they are"
+    run == sudo sh -c 'sshd -T 2>/dev/null | grep -iE "^(passwordauthentication|usepam|kbdinteractiveauthentication|permitrootlogin) "; echo ---; sshd -T 2>/dev/null | grep -q "^usepam yes" || echo USEPAM_IS_NOT_YES; sshd -T 2>/dev/null | grep -q "^passwordauthentication yes" || echo PASSWORD_AUTH_IS_NOT_YES'
+    settle == 5
     terminal_wait == 0
   step "prove the stack is there and reads the shadow database"
     run == sudo ls -l /etc/pam.d/sshd; sudo grep -c . /etc/pam.d/sshd; sudo grep -l pam_unix /etc/pam.d/common-auth
