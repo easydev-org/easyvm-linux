@@ -370,53 +370,26 @@ walkthrough "linux-fedora-workstation - sshd"
   # `meta_l` LEAVES THE PREVIOUS CONTENT IN THE BOX, which is the whole difference: the wizard's last
   # keystrokes were still in it, so Return ran a search for a command line instead of starting a
   # program.
-  step "start from a clean desktop"
-    key == esc
-    settle == 2
-  press meta_l, waiting 3s, named "open the overview"
-  # THE SEARCH BOX IS CLICKED BEFORE ANYTHING IS TYPED INTO IT, AND `meta_l` ALONE IS NOT ENOUGH.
+  # `ctrl+alt+t`, WHICH IS WHAT EVERY PASSING SIBLING USES, INSTEAD OF THE OVERVIEW AND ITS SEARCH.
   #
-  # MEASURED ON THE POD: `meta_l` draws the overview with its search field showing "Type to search" -
-  # and NOT focused. The eight characters typed after it went to the DESKTOP, leaving the overview up
-  # and the field empty:
+  # MEASURED ON RUN 44937306659, whose recording is the Fedora wallpaper for its whole length and
+  # whose daemon log is the failure in one line per attempt:
   #
-  #	=== search for the terminal
-  #	  typed 8 character(s)
-  #	=== the Terminal result has been drawn
-  #	  see: 1 word(s): a                      <- the results rectangle held a fragment of the desktop
+  #	=== open the overview      key meta_l
+  #	=== put the cursor in ...  clicked (960, 59)
+  #	=== search for the terminal  typed 8 character(s)
+  #	=== the Terminal result has been drawn   see: 1 word(s): a
+  #	library: results -> 775615dde254c1c8
   #
-  # A click at (960, 59) - the field's own centre - puts the cursor in it, and the same eight
-  # characters then produced the Terminal tile immediately. The coordinate is the field's, measured
-  # from a frame of this screen, not a guess about where a search box usually sits.
-  step "put the cursor in the overview's search field"
-    click == [960, 59]
-    settle == 2
-  step "search for the terminal"
-    type == terminal
-    type_gap == 0.08
-  # THE RESULT IS WAITED FOR, THEN CLICKED, AND THE DIFFERENCE IS MEASURED.
+  # THE FRAME AT THAT RECT WAS THE SAME IMAGE EVERY ATTEMPT, holding one stray word: the overview
+  # never opened, so the search field, the typed characters and the result tile were never on screen.
+  # The stage then waited ten attempts for a tile that could not appear.
   #
-  # MEASURED ON THE POD in both directions:
-  #
-  #	click at (960, 178) with "terminal" drawn      -> the window opened, prompt `vmuser@fedora:~$`
-  #	click at (960, 178) four seconds after typing  -> a clean desktop, NO window
-  #
-  # The second is what this stage did on its next run, and it is not a wrong coordinate: the search
-  # result had not been drawn yet when the pointer arrived. A fixed `settle:` is a guess about how
-  # long GNOME's search takes, and on a guest still finishing its first login that guess was short.
-  #
-  # SO THE TILE IS WAITED FOR, BY ITS OWN WORD. A search that has produced nothing draws no word in
-  # that row; one that has produced the app draws "Terminal". The loop presses nothing - a key here
-  # would go into the search box and change what is being searched for.
-  step "the Terminal result has been drawn"
-    # THE RECT IS THE TILE AND ITS LABEL, NOT THE WHOLE RESULT AREA. MEASURED with tesseract on a
-    # frame of this screen: the wider box `[700, 90, 1250, 240]` returns NOTHING - the tile's icon is
-    # a gradient and the text is small against it - while `[860, 150, 1060, 250]` reads "Terminal".
-    # A gate whose rectangle cannot see the word it is waiting for fails for ever, quietly.
-    loop == {check: {from: results, mode: text, name: drawn, rect: [860, 150, 1060, 250], rect_at: [1920, 1080], scale: 1, words: [[terminal]]}, do: [{settle: 2}], max: 10, see: {name: results}, until: {fact: drawn}}
-  step "open the terminal on the first result"
-    click == [960, 178]
-    settle == 20
+  # ubuntu, mint, mx, manjaro AND cachyos ALL OPEN THE TERMINAL WITH `ctrl+alt+t` and all of them pass.
+  # A key the window manager handles cannot be lost to the overview's focus rules, and there is no
+  # search latency to guess at. The proof that follows is unchanged and is what actually matters: the
+  # prompt `vmuser@fedora` must be on screen before anything is typed.
+  press ctrl+alt+t, waiting 20s, named "open the terminal"
   # THE TERMINAL HAS TO BE PROVEN OPEN BEFORE ANY COMMAND IS TYPED INTO IT.
   #
   # THIS STEP WOULD HAVE CAUGHT THE FAULT ABOVE ON ITS FIRST RUN. The stage typed eight commands
