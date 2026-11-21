@@ -2,7 +2,7 @@ walkthrough "linux-zorin - sshd"
   resolution 1920x1080
   password admin
   var out == {default: out/distro.qcow2, from: args.out}
-  # THE ACCOUNT THIS DISK HAS IS `vmuservmuser` - see the manjaro header for the measurement.
+  # THE ACCOUNT THIS DISK HAS IS `vmuser` - see the manjaro header for the measurement.
   #
   # ubiquity fills the username from the full name as it is typed, so its two `type:` steps
   # APPEND and the account is created with the value twice.
@@ -17,8 +17,8 @@ walkthrough "linux-zorin - sshd"
   # step authenticate as `File.SSHUser`, which is parsed from a top-level `ssh_user:` key
   # (internal/walk/walk.go) and defaults to `vmuser`. Setting `var user` changes what gets TYPED on
   # the console; it does not change who the client logs in as.
-  header ssh_user == vmuservmuser
-  var user == {default: vmuservmuser, from: args.user}
+  header ssh_user == vmuser
+  var user == {default: vmuser, from: args.user}
   header recording_resolution == [1920, 1080]
 
   step "boot the disk"
@@ -38,26 +38,48 @@ walkthrough "linux-zorin - sshd"
   # THE BAND IS THE GREETER'S OWN MIDDLE: the user tile and the password field, x 740..1340 and
   # y 470..770. Read back from that recording at scale 2 it yields "Password vmuser"; at scale 1 it
   # yields nothing, which is why the scale is 2 and not the default.
+  # THE GREETER IS RECOGNISED BY THE ONE WORD IT PRINTS LARGE, AND THE GUARDS READ THE SAME BAND.
+  #
+  # MEASURED ON RUN 44937306658, whose recording at a third of its length is zorin's own greeter:
+  # `vmuser` above a focused "Password" box, and the screen BLACK at the end - this guest blanks its
+  # display exactly as cachyos does.
+  #
+  # TWO FAULTS, BOTH ALREADY MEASURED ON ITS SIBLINGS:
+  #
+  #   "Password" is a PLACEHOLDER inside a white input field, and the reader does not see it at this
+  #   size - cachyos's own log shows `see: 4 word(s): hs vmuser ES £3` where the field was plainly on
+  #   screen. A loop requiring both words could only time out.
+  #   `esc` IN THE LOOP closes a greeter that is already drawn - cachyos's recording showed the screen
+  #   returning to the clock after every pass.
+  #
+  # And the guards carry the loop's own rectangle: a `when:` without `rect:` reads every pixel, where
+  # the tile's name is too small - the fault that made cachyos skip its whole login.
   step "the greeter is drawn"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password], [vmuser]]}, do: [{key: esc, settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
+    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [vmuser]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
   step "greeter - the user tile"
-    when == [password, vmuser]
+    when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     click == [960, 488]
   step "greeter - the password box"
-    when == [password, vmuser]
+    when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     clear == false
     click == [960, 627]
     settle == 4
     type == '{{ password }}'
   step "greeter - submit"
-    when == [password, vmuser]
+    when == vmuser
+    rect == [740, 470, 1340, 770]
+    rect_at == [1920, 1080]
     key == ret
     settle == 12
   # ZORIN'S FIRST-RUN "Start Tour" PANEL IS A MODAL THAT TAKES THE KEYBOARD, AND IT MUST GO FIRST.
   #
   # MEASURED ON RUN 58323ec's zorin ssh: the recording shows the terminal with only FOUR commands in
   # it - xset, pkill, the sudo unlock, and 'sudo systemctl stop packagekit' - and then a bare
-  # 'vmuservmuser@...:~$' prompt with NOTHING after it, while the stage's log says it went on to type
+  # 'vmuser@...:~$' prompt with NOTHING after it, while the stage's log says it went on to type
   # seven more commands. Behind the terminal, 'No Thanks / Start Tour' is sitting in a panel in the
   # middle of the screen.
   #
@@ -71,6 +93,12 @@ walkthrough "linux-zorin - sshd"
     click == [873, 797]
   press Escape, waiting 2s, named "clear anything the panel left behind"
   press ctrl+alt+t, waiting 20s, named "open the terminal"
+  # THIS GUEST BLANKS ITS DISPLAY, so the screen is kept awake in a step of its own before anything is
+  # typed - the measurement is cachyos's, which failed exactly this way on run 44933304315.
+  step "keep the screen on"
+    run == xset s off; xset -dpms; xset s noblank
+    settle == 5
+    terminal_wait == 0
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
