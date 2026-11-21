@@ -389,6 +389,17 @@ walkthrough "linux-fedora-workstation - sshd"
   # A key the window manager handles cannot be lost to the overview's focus rules, and there is no
   # search latency to guess at. The proof that follows is unchanged and is what actually matters: the
   # prompt `vmuser@fedora` must be on screen before anything is typed.
+  # THE WELCOME DIALOG TAKES THE KEYBOARD, AND IT MUST GO FIRST.
+  #
+  # MEASURED ON RUN 44940300770, whose last frame is Fedora's first-login dialog - "Welcome to
+  # Fedora Linux 45 (Workstation Edition)" with `Skip` and `Take Tour` - drawn OVER the desktop. The
+  # `ctrl+alt+t` that followed opened GNOME's overview ("Type to search") instead of a terminal,
+  # because the dialog held focus, and the prompt this stage waits for never appeared.
+  #
+  # This is the same fault kubuntu's Welcome Centre had, answered the same way: dismiss the dialog by
+  # its own button, and wait until its words are gone rather than sleeping and hoping.
+  step "dismiss the welcome dialog, which takes the keyboard"
+    loop == {check: {from: welcome, mode: text, name: gone, rect: [740, 620, 1200, 790], rect_at: [1920, 1080], scale: 2, words: [[take, tour]]}, do: [{click: [852, 756], settle: 4}, {key: esc, settle: 2}], max: 8, see: {name: welcome}, until: {fact: gone}}
   press ctrl+alt+t, waiting 20s, named "open the terminal"
   # THE TERMINAL HAS TO BE PROVEN OPEN BEFORE ANY COMMAND IS TYPED INTO IT.
   #
