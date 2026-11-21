@@ -51,10 +51,26 @@ walkthrough "linux-popos - sshd"
   #
   # AND THE THREE `when: [password, vmuser]` GUARDS COULD NOT HAVE CAUGHT IT: nothing binds a fact by
   # those names, so they never gated anything. The greeter is recognised here by what it prints.
+  # THE CARD MOVES, SO THE BAND COVERS BOTH PLACES IT HAS BEEN SEEN.
+  #
+  # MEASURED ON TWO RUNS, and the frames disagree by about 30 pixels vertically:
+  #
+  #	44939896523   the password row at y 205..250   (centre 1165, 227)
+  #	44940558351   the password row at y 240..275   (centre 1155, 258)
+  #
+  # The first fix pinned the band to the first frame and the click to its centre, so the next run -
+  # whose card sat lower - failed the loop for thirty attempts on a greeter that was plainly on
+  # screen. The band below spans both rows, and the click lands on the row's own middle so either
+  # position puts the cursor in the field.
   step "greeter - the password box"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [1010, 200, 1310, 255], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 30, see: {name: greeter}, until: {fact: up}}
+    loop == {check: {from: greeter, mode: text, name: up, rect: [1000, 195, 1320, 285], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 30, see: {name: greeter}, until: {fact: up}}
+  # ONE CLICK AT y = 245, WHICH IS INSIDE BOTH ROWS THIS FIELD HAS BEEN SEEN AT.
+  #
+  # 205..250 and 240..275 overlap between 240 and 250, so 245 lands in the field whichever place the
+  # card takes - no probing, no second click that could toggle focus back out.
   step "greeter - focus the field"
-    click == [1165, 227]
+    click == [1155, 245]
+    settle == 2
   step "greeter - log in"
     settle == 3
     type == '{{ password }}'
