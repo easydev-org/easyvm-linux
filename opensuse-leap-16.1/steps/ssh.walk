@@ -126,6 +126,21 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
     run == printf '%s\n' {{ password }} | sudo -S -v
     settle == 4
     terminal_wait == 0
+  # WHAT SSHD WILL DO WITH THIS ACCOUNT, PRINTED BEFORE THE TEN-MINUTE WAIT.
+  #
+  # MEASURED ON RUN 44940556246: authentication now gets all the way to the socket and is then reset
+  # (`read: connection reset by peer`), where the run before it stopped at `no supported methods
+  # remain`. A reset immediately after a successful auth is a session that cannot start - a shell the
+  # account may not use, a home directory sshd cannot enter, or a Match block that applies to the
+  # client - and every one of those is visible here.
+  step "say what sshd will do with this account"
+    run == sudo sshd -T 2>/dev/null | grep -iE "^(passwordauthentication|usepam|allowusers|allowgroups|denyusers|denygroups|chrootdirectory|forcecommand|permitrootlogin) "
+    settle == 6
+    terminal_wait == 0
+  step "say what the account is"
+    run == sudo getent passwd vmuser; sudo ls -ld /home/vmuser; sudo su -s /bin/sh vmuser -c 'echo SHELL_OK; pwd'
+    settle == 8
+    terminal_wait == 0
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
