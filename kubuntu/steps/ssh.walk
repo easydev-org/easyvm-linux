@@ -29,7 +29,7 @@ walkthrough "linux-kubuntu - sshd"
   # EITHER WORD COUNTS: a session where the window was already dismissed shows the panel instead.
   # The band is the middle of the screen where the window is drawn, not the whole frame.
   step "the session is up, which is what autologin is for"
-    loop == {check: {from: desk, mode: says_any, name: up, rect: [600, 200, 1300, 900], rect_at: [1920, 1080], words: [[welcome], [plasma], [kubuntu]]}, do: [{settle: 10}], max: 40, see: {name: desk}, until: {fact: up}}
+    loop == {check: {from: desk, mode: text, name: up, rect: [600, 200, 1300, 900], rect_at: [1920, 1080], words: [[welcome], [plasma], [kubuntu]]}, do: [{settle: 10}], max: 40, see: {name: desk}, until: {fact: up}}
   # THE WELCOME CENTRE IS UP ON THIS DESKTOP AND IT EATS ctrl+alt+t.
   #
   # MEASURED ON RUN 44548179034, whose ssh recording at 90 s is "Welcome Center" with its Skip
