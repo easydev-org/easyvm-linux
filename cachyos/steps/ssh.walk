@@ -38,8 +38,27 @@ walkthrough "linux-cachyos - sshd"
   step "boot the default GRUB entry"
     key == ret
     settle == 20
+  # BOTH WORDS, IN ONE SET - NOT ONE OF TWO SETS.
+  #
+  # MEASURED ON RUN 44928008531, and the daemon log is the whole story:
+  #
+  #	see: 4 word(s): hs vmuser ES £3
+  #	the greeter is drawn [check]: up = true (read "vmuser")
+  #	loop: satisfied after 1 attempt(s)
+  #	greeter - the user tile - when: 8 word(s): 12:08 PM i CS | ? sy b
+  #	skipped: the screen does not say "password vmuser"
+  #
+  # `words: [[password], [vmuser]]` MEANS EITHER SET, so the loop stopped as soon as the user tile
+  # existed - while SDDM was still drawing its clock above it. The three login steps that follow carry
+  # `when: [password, vmuser]`, which needs BOTH words, so all three were skipped and the stage went to
+  # `wait for the desktop` on a machine that had never been logged into. Its recording at 90 s is SDDM's
+  # clock lock screen, which is what "no desktop" looks like from the inside.
+  #
+  # ONE INNER SET MEANS BOTH. `wordSetsOfValue` reads a FLAT `[a, b]` as two one-word sets - "any of
+  # a or b", which is the same mistake in a shorter spelling - so the words go inside their own list:
+  # `[[password, vmuser]]` is ONE set, and `says` requires every word of a set.
   step "the greeter is drawn"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password], [vmuser]]}, do: [{settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
+    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password, vmuser]]}, do: [{settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
   step "greeter - the user tile"
     when == [password, vmuser]
     click == [960, 488]
