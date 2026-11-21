@@ -63,7 +63,20 @@ walkthrough "linux-popos - sshd"
   # screen. The band below spans both rows, and the click lands on the row's own middle so either
   # position puts the cursor in the field.
   step "greeter - the password box"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [1000, 195, 1320, 285], rect_at: [1920, 1080], scale: 2, words: [[password]]}, do: [{settle: 3}], max: 30, see: {name: greeter}, until: {fact: up}}
+    # THE BAND IS THE PASSWORD ROW AND NOTHING ELSE, AND THE SCALE IS THE ONE THAT READ IT.
+    #
+    # MEASURED ON RUN 44941160575, whose daemon log is the check's own reading:
+    #
+    #	see: 2 word(s): VM User
+    #	greeter - the password box [check]: up = false (none of "password" in "VM User")
+    #
+    # THE BAND WAS READING THE NAME ABOVE THE FIELD. The card's vertical position varies between boots
+    # (measured at y 205..250 and y 240..275 in two runs), so a band wide enough to cover both also
+    # covers "VM User" - and the reader returned that line and stopped. Cutting the "VM" line out
+    # would make the band miss one of the two positions, so instead the words are what the row
+    # actually says and the scale is raised until the placeholder is legible: a local crop of this
+    # very frame at scale 2 reads "i@ Password: o", so the text IS there to be read.
+    loop == {check: {from: greeter, mode: text, name: up, rect: [1010, 215, 1300, 280], rect_at: [1920, 1080], scale: 3, words: [[password]]}, do: [{settle: 3}], max: 40, see: {name: greeter}, until: {fact: up}}
   # ONE CLICK AT y = 245, WHICH IS INSIDE BOTH ROWS THIS FIELD HAS BEEN SEEN AT.
   #
   # 205..250 and 240..275 overlap between 240 and 250, so 245 lands in the field whichever place the
