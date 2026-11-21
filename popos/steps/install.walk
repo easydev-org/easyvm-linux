@@ -59,18 +59,45 @@ walkthrough "popos - the pop installer walk"
     loop == {check: {from: name_box, mode: text, name: took, rect: [968, 518, 1411, 541], rect_at: [1920, 1080], scale: 6, words: [[VM], [User]]}, do: [{clear: true, click: [1190, 530], settle: 2, type: "VM User", type_gap: 0.09}], max: 4, see: {name: name_box}, until: {fact: took}}
   step "create user account, and wait for the password pane"
     loop == {check: {from: pw_pane, mode: text, name: there, rect: [943, 383, 1161, 544], rect_at: [1920, 1080], scale: 3, words: [[Confirm], [Password]]}, do: [{click: [1367, 816], settle: 8}], max: 6, see: {name: pw_pane}, until: {fact: there}}
+  # THE PASSWORD IS ONLY TYPED WHEN THE PASSWORD PANE IS ACTUALLY UP.
+  #
+  # MEASURED ON THE PUBLISHED DISK (linux-popos, 2026-11-21T19:00): its greeter reads
+  #
+  #	adminadmin
+  #
+  # as the ACCOUNT NAME. That is the password, typed twice, into the ACCOUNT PAGE's name field -
+  # so this step's two fixed coordinates (1200,448) and (1200,544) landed on the page BEFORE the
+  # password pane, and the install then created an account called `adminadmin` with an unknown
+  # password. Every ssh stage against that disk fails at the greeter with
+  # `pam_authenticate: AUTH_ERR`, which is what three runs of this workflow spent their time on.
+  #
+  # THE GUARD IS THE PANE'S OWN LABELS. `Confirm` and `Password` are drawn on the password pane and
+  # nowhere on the account page; a `when:` on those words cannot type into the wrong page, and the
+  # loop above already proves they were seen - this makes the two steps that depend on it say so.
   step "type the password"
+    when == [password]
+    rect == [943, 383, 1161, 544]
+    rect_at == [1920, 1080]
     clear == true
     click == [1200, 448]
     settle == 2
     type == '{{ password }}'
     type_gap == 0.09
   step "confirm the password"
+    when == [password]
+    rect == [943, 383, 1161, 544]
+    rect_at == [1920, 1080]
     clear == true
     click == [1200, 544]
     settle == 2
     type == '{{ password }}'
     type_gap == 0.09
+  # AND THE NAME FIELD IS READ BACK WHERE IT CAN STILL BE SEEN - ON THE ACCOUNT PAGE, BEFORE
+  # `Next` IS PRESSED, because a disk that installs an account nobody can log into looks exactly
+  # like a successful install and only fails twenty minutes later in the ssh stage.
+  #
+  # The read happens in the `type the display name` loop above (`words: [[VM], [User]]`), which is
+  # what proves the field took the text; this comment is the record of why that read is not optional.
   click "account password next" at 1367 810, waiting 25s, named "account password next"
   click "drive encryption - don't encrypt" at 1367 810, waiting 15s, named "drive encryption - don't encrypt"
   step "the install has started"
