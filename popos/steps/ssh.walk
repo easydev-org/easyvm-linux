@@ -106,7 +106,11 @@ walkthrough "linux-popos - sshd"
   # clicked only if no prompt appeared - a fallback that is a fact on screen, not a fixed sleep.
   press ctrl+alt+t, waiting 8s, named "open the terminal"
   step "the terminal is open, or the dock icon is clicked"
-    loop == {check: {from: term, mode: text, name: up, rect: [200, 420, 1700, 900], rect_at: [1920, 1080], scale: 1, words: [[pop-os], [popos]]}, do: [{click: [1087, 1038], settle: 6}], max: 4, see: {name: term}, until: {fact: up}}
+    # THE PROMPT IS MATCHED BY THE WORD THAT IS ACTUALLY IN IT. The guest's own prompt is
+    # `vmuser@pop-os:~$`, and the two spellings that have been seen for the host part are covered;
+    # the tile is clicked on every attempt the prompt is missing, so the fallback is used exactly as
+    # often as it is needed.
+    loop == {check: {from: term, mode: text, name: up, rect: [200, 420, 1700, 900], rect_at: [1920, 1080], scale: 1, words: [[pop-os], [popos], [vmuser]]}, do: [{click: [1087, 1038], settle: 6}], max: 6, see: {name: term}, until: {fact: up}}
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
