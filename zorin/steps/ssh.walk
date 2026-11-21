@@ -17,8 +17,8 @@ walkthrough "linux-zorin - sshd"
   # step authenticate as `File.SSHUser`, which is parsed from a top-level `ssh_user:` key
   # (internal/walk/walk.go) and defaults to `vmuser`. Setting `var user` changes what gets TYPED on
   # the console; it does not change who the client logs in as.
-  header ssh_user == vmuservmuser
-  var user == {default: vmuservmuser, from: args.user}
+  header ssh_user == vmuser
+  var user == {default: vmuser, from: args.user}
   header recording_resolution == [1920, 1080]
 
   step "boot the disk"
@@ -57,12 +57,12 @@ walkthrough "linux-zorin - sshd"
   step "the greeter is drawn"
     loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [vmuser]}, do: [{settle: 2}], max: 60, see: {name: greeter}, until: {fact: up}}
   step "greeter - the user tile"
-    when == vmuservmuser
+    when == vmuser
     rect == [740, 470, 1340, 770]
     rect_at == [1920, 1080]
     click == [960, 488]
   step "greeter - the password box"
-    when == vmuservmuser
+    when == vmuser
     rect == [740, 470, 1340, 770]
     rect_at == [1920, 1080]
     clear == false
@@ -70,7 +70,7 @@ walkthrough "linux-zorin - sshd"
     settle == 4
     type == '{{ password }}'
   step "greeter - submit"
-    when == vmuservmuser
+    when == vmuser
     rect == [740, 470, 1340, 770]
     rect_at == [1920, 1080]
     key == ret
