@@ -76,10 +76,22 @@ walkthrough "zorin - the ubiquity walk"
   click "where are you" at 1361 764, waiting 18s, named "where are you"
   step "the time zone pane is done"
     loop == {check: {from: screen, mode: text, name: done, rect: [487, 285, 803, 416], rect_at: [1920, 1080], words: [[who, are, you], [your, name]]}, do: [{settle: 3}], max: 60, see: {name: screen}, until: {fact: done}}
+  # THE FIRST FIELD IS THE FULL NAME AND THE SECOND IS THE USER NAME, AND UBIQUITY JOINS THEM.
+  #
+  # MEASURED ON RUN 44941482197's ssh recording, whose terminal TITLE BAR reads
+  #
+  #	vmuservmuser@vmuservmuser-Standard-PC-Q35-ICH9...
+  #
+  # - user@host - so the ACCOUNT this disk carries is `vmuservmuser`, not `vmuser`, and the hostname
+  # is that name with `-Standard-PC-Q35-ICH9` appended. Both fields had `{{ user }}` typed into them,
+  # and ubiquity derives the account from the pair; the doubled name is what that produces.
+  #
+  # THE FULL NAME IS NOW A SEPARATE WORD, so the pair is `VM User` / `vmuser` - which is what the
+  # installer's own greeter and the walkthroughs' `user` expect.
   step "who are you - your name"
     click == [975, 386]
     settle == 2
-    type == '{{ user }}'
+    type == 'VM User'
   step "who are you - username"
     click == [859, 477]
     settle == 2
