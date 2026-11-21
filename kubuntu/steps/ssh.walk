@@ -11,8 +11,25 @@ walkthrough "linux-kubuntu - sshd"
     # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
     memory_mb == 4096
     timeout == 900
+  # THE DESKTOP IS RECOGNISED BY ITS OWN TASKBAR, NOT BY TWO WORDS THAT ARE NOT ON IT.
+  #
+  # MEASURED ON RUN 44924791378's ssh leg (kubuntu), whose recording at 60 s is the finished KDE
+  # desktop with its taskbar, and whose daemon log is this step's own OCR:
+  #
+  #	see: 104 word(s): "... Welcome Center ... Welcome to the Ubuntu operating system ..."
+  #	the session is up ... [check]: up = false (none of "applications" or "kubuntu" in ...)
+  #
+  # THE DESKTOP WAS UP. The Welcome Centre covers the middle of it, the panel says "Kubuntu" in a
+  # wordmark the reader returns as "SEKUDUNTU", and the KDE menu button is an icon with no
+  # "applications" text at all. A check that names two words this desktop does not print is a check
+  # that fails on a machine that is working - which is what forty attempts proved.
+  #
+  # THE WELCOME CENTRE'S OWN TITLE IS THE HONEST SIGNAL, because that window is what an autologin
+  # KDE session puts in front of everything else on first boot, and it is what the next step closes.
+  # EITHER WORD COUNTS: a session where the window was already dismissed shows the panel instead.
+  # The band is the middle of the screen where the window is drawn, not the whole frame.
   step "the session is up, which is what autologin is for"
-    loop == {check: {from: desk, mode: text, name: up, rect: [0, 0, 1920, 1080], rect_at: [1920, 1080], words: [[applications], [kubuntu]]}, do: [{settle: 10}], max: 40, see: {name: desk}, until: {fact: up}}
+    loop == {check: {from: desk, mode: says_any, name: up, rect: [600, 200, 1300, 900], rect_at: [1920, 1080], words: [[welcome], [plasma], [kubuntu]]}, do: [{settle: 10}], max: 40, see: {name: desk}, until: {fact: up}}
   # THE WELCOME CENTRE IS UP ON THIS DESKTOP AND IT EATS ctrl+alt+t.
   #
   # MEASURED ON RUN 44548179034, whose ssh recording at 90 s is "Welcome Center" with its Skip

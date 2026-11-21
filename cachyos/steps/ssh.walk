@@ -22,8 +22,24 @@ walkthrough "linux-cachyos - sshd"
   # THE BAND IS THE GREETER'S OWN MIDDLE: the user tile and the password field, x 740..1340 and
   # y 470..770. Read back from that recording at scale 2 it yields "Password vmuser"; at scale 1 it
   # yields nothing, which is why the scale is 2 and not the default.
+  # THIS DISK STOPS AT A GRUB MENU, AND THE OLD LOOP KEPT IT THERE.
+  #
+  # MEASURED ON RUN 44924791378, whose own recording is the evidence: at 240 s - and at 383 s, when
+  # the stage gave up - the frame is CachyOS's themed GRUB screen with "CachyOS Linux" highlighted,
+  # the other entries below it, and NO COUNTDOWN RUNNING. The disk was fine and the bootloader was
+  # waiting for a key.
+  #
+  # The loop below used to press `esc` every four seconds while it looked for the greeter. ON A GRUB
+  # MENU `esc` CANCELS THE TIMEOUT - so sixty presses kept the menu up for the whole four minutes,
+  # and the OCR read "BootNext)" off the menu each time, which is the text the daemon log shows.
+  #
+  # SO THE ENTRY IS CHOSEN ONCE, BEFORE ANY WAITING: `ret` takes the highlighted default. The loop
+  # that follows only waits; it presses nothing, because there is nothing left to press.
+  step "boot the default GRUB entry"
+    key == ret
+    settle == 20
   step "the greeter is drawn"
-    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password], [vmuser]]}, do: [{key: esc, settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
+    loop == {check: {from: greeter, mode: text, name: up, rect: [740, 470, 1340, 770], rect_at: [1920, 1080], scale: 2, words: [[password], [vmuser]]}, do: [{settle: 4}], max: 60, see: {name: greeter}, until: {fact: up}}
   step "greeter - the user tile"
     when == [password, vmuser]
     click == [960, 488]
