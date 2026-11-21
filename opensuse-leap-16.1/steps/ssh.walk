@@ -136,31 +136,6 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   #
   # `timeout 20` IS THE SECOND HALF OF THAT: no question here is worth more than twenty seconds, and
   # a bounded command reports rather than hangs.
-  step "say what sshd will do with this account"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sshd -T 2>&1 | grep -iE "^(passwordauthentication|usepam|allowusers|allowgroups|denyusers|denygroups|chrootdirectory|forcecommand|permitrootlogin|authenticationmethods) " || echo SSHD_T_SAID_NOTHING
-    settle == 8
-    terminal_wait == 0
-  step "say what the account is"
-    run == getent passwd vmuser; ls -ld /home/vmuser 2>&1; printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 su -s /bin/sh vmuser -c 'echo SHELL_OK' 2>&1 | tail -2
-    settle == 10
-    terminal_wait == 0
-  # sshd REFUSES TO START WITHOUT A HOST KEY, AND THIS IMAGE SHIPS NONE.
-  #
-  # MEASURED ON RUN ef86936's console, three times, once per config path:
-  #
-  #	vmuser@localhost:~> sudo sshd -T -f /etc/ssh/sshd_config 2>&1 | head -5
-  #	sshd: no hostkeys available -- exiting.
-  #	exit=0
-  #
-  # "no hostkeys available" is the FIRST thing sshd checks - before it reads the config at all - so
-  # every `sshd -T` question this file asked for three runs was answered by that line and nothing
-  # else. And the exit status reads 0 because `head` is the last command in the pipe, not sshd.
-  #
-  # The keys are generated here, through the CONSOLE, because there is no ssh yet: `ssh-keygen -A`
-  # writes one of each type sshd's defaults ask for, and this image's package install never ran the
-  # generator (the same `policy-rc.d`-shaped gap zorin had).
-  #
-  # `/run/sshd` IS sshd's PRIVILEGE SEPARATION DIRECTORY AND THIS IMAGE DOES NOT CREATE IT EITHER.
   # Measured: "Missing privilege separation directory: /run/sshd".
   step "generate the host keys sshd will not start without"
     run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'mkdir -p /run/sshd /etc/ssh; ssh-keygen -A; ls -l /etc/ssh/ssh_host_*_key'
@@ -277,62 +252,7 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   # there makes the PAM stack written above irrelevant - the password is then checked against the
   # shadow hash directly, and a guest whose hash this sshd cannot parse answers exactly what this
   # run did: `attempted methods [none password keyboard-interactive], no supported methods remain`.
-  step "generate the host keys, so sshd -T can answer"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'ssh-keygen -A 2>&1 | tail -2; ls -1 /etc/ssh/ssh_host_*_key'
-    settle == 4
-    terminal_wait == 0
-  step "prove the four settings this stage needs, and say what they are"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'sshd -T 2>/dev/null | grep -iE "^(passwordauthentication|usepam|kbdinteractiveauthentication|permitrootlogin) "; echo ---; sshd -T 2>/dev/null | grep -q "^usepam yes" || echo USEPAM_IS_NOT_YES; sshd -T 2>/dev/null | grep -q "^passwordauthentication yes" || echo PASSWORD_AUTH_IS_NOT_YES'
-    settle == 5
-    terminal_wait == 0
-  step "prove the stack is there and reads the shadow database"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'ls -l /etc/pam.d/sshd; grep -c . /etc/pam.d/sshd; grep -l pam_unix /etc/pam.d/common-auth'
-    settle == 4
-    terminal_wait == 0
-  # AND NOW ASK THE DAEMON, WITH A HOST KEY ON DISK SO IT CAN ANSWER.
-  #
-  # MEASURED ON RUN 43338e3's console, which is the last piece of this puzzle:
-  #
-  #	vmuservmuser@localhost:~> sudo passwd -S vmuser
-  #	vmuser P 2026-11-19 0 99999 7 -1          <- P: a usable password, not locked, not expired
-  #	Password expires: Sep 03, 2300 (never)
-  #
-  # So the account is fine, the PAM stack is written (154 bytes, five lines, pam_unix), sshd is active
-  # - and the client is still refused. The daemon's own view has to be read from the daemon, and
   # `sshd -T` can only do that now that /etc/ssh/ssh_host_*_key exists.
-  step "what sshd itself says about authentication, now that it can answer"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'sshd -T 2>&1 | grep -iE "^(passwordauthentication|usepam|kbdinteractiveauthentication|pubkeyauthentication|permitrootlogin|authenticationmethods)"; echo ---; grep -iE "^(PasswordAuthentication|UsePAM|KbdInteractive|AuthenticationMethods)" /etc/ssh/sshd_config; sed -i s/^PasswordAuthentication.no/PasswordAuthentication.yes/ /etc/ssh/sshd_config'
-    settle == 5
-    terminal_wait == 0
-  # SELINUX IS NOT TOUCHED, AND I WAS WRONG TO THINK IT MATTERED.
-  #
-  # I ADDED A `setenforce 0` HERE ON THE EVIDENCE THAT `getenforce` SAID `Enforcing` AND THAT THE
-  # SAME PASSWORD WAS ACCEPTED BY `su` BUT REFUSED BY sshd - which looks exactly like a domain
-  # difference. IT WAS NOT. The actual cause was `/etc/pam.d/sshd` missing (see the step that writes
-  # it), and with that file in place sshd authenticated while SELinux was still ENFORCING.
-  #
-  # MEASURED, and this is what settles it: a guest with `/etc/pam.d/sshd` written and SELinux
-  # untouched answered
-  #
-  #	ssh vmuser@127.0.0.1 id  ->  uid=1000(vmuser) gid=1000(vmuser) groups=1000(vmuser),497(wheel)
-  #
-  # TURNING A SECURITY FEATURE OFF TO MAKE A STAGE PASS IS A CLAIM THAT THE STAGE NEEDS IT OFF, and
-  # that claim was false. A walkthrough that disables SELinux to authenticate is also one that would
-  # never notice if this distribution's policy DID start refusing PAM - the failure would be hidden
-  # by the workaround.
-  # THE RESTART IS ASKED FOR WITHOUT WAITING FOR IT, BECAUSE WAITING FOR IT HANGS THE TERMINAL.
-  #
-  # MEASURED IN A LOCAL POD, ON THIS DISK, WITH THE CONSOLE ON SCREEN: the line
-  #
-  #	sudo -S ... timeout 40 sh -c 'systemctl restart sshd 2>&1 | tail -3; sleep 2; systemctl is-active sshd'
-  #
-  # WAS TYPED AND NEVER RETURNED - the recording's last frame is that command sitting on the prompt
-  # with no output under it, and every step after it (the firewall, the listener check, `wait for
-  # sshd`) therefore never ran either. A restart of a unit that is not running goes through systemd's
-  # job machinery and, on this image, does not come back until the job does.
-  #
-  # `--no-block` RETURNS AS SOON AS THE JOB IS QUEUED, and `enable --now` is the same request in the
-  # form the sibling guests already use. The step after this one proves the result with `is-active`,
   # so nothing is assumed: a queue that never starts still fails, one line later and with a name.
   step "start sshd"
     run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'systemctl enable --now --no-block sshd 2>&1 | tail -3; sleep 6; systemctl is-active sshd'
@@ -370,14 +290,6 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   #
   # THE WHOLE CHAIN IS PRINTED: the file this stage wrote, the file it includes, and whether each
   # module it names exists on disk. That is the last thing a recording can answer.
-  step "print the PAM chain this sshd will load"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'echo "=== pam.d/sshd ==="; cat /etc/pam.d/sshd; echo "=== common-auth ==="; grep -v "^#" /etc/pam.d/common-auth | grep . ; echo "=== modules named, and whether they exist ==="; for m in $(grep -hoE "pam_[a-z0-9_]+" /etc/pam.d/sshd /etc/pam.d/common-* 2>/dev/null | sort -u); do printf "%-22s " "$m"; find /lib/security /usr/lib64/security /usr/lib/security -name "$m.so" 2>/dev/null | head -1 || echo MISSING; done'
-    settle == 6
-    terminal_wait == 0
-  step "is the account's password usable to PAM"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'passwd -S vmuser; chage -l vmuser | head -4'
-    settle == 5
-    terminal_wait == 0
   step "open the firewall for ssh"
     run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 40 sh -c "firewall-cmd --add-service=ssh --permanent; firewall-cmd --reload; firewall-cmd --list-services" 2>&1 | tail -5
     settle == 8
@@ -404,10 +316,6 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   #	nothing               it is not listening, and the earlier `active` was about a different unit
   #
   # IT RUNS BEFORE THE WAIT, so the recording holds the answer even when the wait expires.
-  step "show what the daemon is listening on"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'ss -ltnp | grep -E ":22\b|sshd"; echo "=== unit ==="; systemctl status sshd --no-pager 2>&1 | head -8'
-    settle == 5
-    terminal_wait == 0
   step "wait for sshd"
     require_ssh == true
     timeout == 600
