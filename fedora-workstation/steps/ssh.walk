@@ -430,8 +430,23 @@ walkthrough "linux-fedora-workstation - sshd"
   #
   # A loop that presses a key to "help" a screen appear is a loop that can hold it away. This one only
   # waits: `meta_l` above opened the overview, and nothing here may close it.
-  step "the overview's search field is drawn"
-    loop == {check: {from: ov, mode: text, name: field, rect: [700, 35, 1250, 90], rect_at: [1920, 1080], scale: 2, words: [[type, to, search]]}, do: [{settle: 2}], max: 10, see: {name: ov}, until: {fact: field}}
+  # THE OVERVIEW IS MEASURED, NOT READ. ITS SEARCH FIELD CANNOT BE READ AT ALL.
+  #
+  # MEASURED with tesseract on this run's own frame: the field's rectangle (700,35 .. 1250,90)
+  # returns NOTHING at scale 2, 3, 4 or 6 - the placeholder is light grey on a light background and
+  # the full frame reads nothing either. A check waiting for those words can never pass, however
+  # plainly a person can see them.
+  #
+  # THE OVERVIEW ITSELF IS UNMISTAKABLE IN BRIGHTNESS. When it opens, the wallpaper shrinks into a
+  # rounded card and a dark surround covers the top of the screen; when it is closed the same band is
+  # the wallpaper. Measured on this run's frames, band (0,95 .. 1920,115):
+  #
+  #	overview open    52.2
+  #	overview closed 206.6   (and 206.6 on two other frames of the plain desktop)
+  #
+  # so `mean_between` 0..110 is a fact about the picture rather than a guess about a font.
+  step "the overview is open"
+    loop == {check: {from: ov, mode: mean_between, name: field, rect: [0, 95, 1920, 115], rect_at: [1920, 1080], range: [0, 110]}, do: [{settle: 2}], max: 10, see: {name: ov}, until: {fact: field}}
   step "put the cursor in the search field"
     click == [960, 59]
     settle == 2
