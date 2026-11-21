@@ -72,26 +72,35 @@ walkthrough "popos - the pop installer walk"
   # `pam_authenticate: AUTH_ERR`, which is what three runs of this workflow spent their time on.
   #
   # THE GUARD IS THE PANE'S OWN LABELS. `Confirm` and `Password` are drawn on the password pane and
-  # nowhere on the account page; a `when:` on those words cannot type into the wrong page, and the
-  # loop above already proves they were seen - this makes the two steps that depend on it say so.
+  # THE PANE IS WAITED FOR, NOT GATED ON A GUARD THAT CAN ALSO SKIP THE REAL PAGE.
+  #
+  # THE FIRST VERSION OF THIS FIX WAS WRONG IN THE OTHER DIRECTION, AND THE NEXT RUN PROVED IT: a
+  # `when:` on the pane's labels skips the step when the reader does not see them - and the two
+  # password fields were then never typed. The disk it published has an account whose password is not
+  # this walk's, so its greeter answers `pam_authenticate: AUTH_ERR` and no password logs in.
+  #
+  # A `when:` IS THE WRONG INSTRUMENT FOR "WAIT UNTIL": it is a gate, and a gate that mis-reads
+  # silently removes the step. The loop below RETRIES until the pane is there - pressing nothing but
+  # `Next`, which is what got here - and the two steps after it are then unconditional, so the fields
+  # are always typed once the pane is up.
+  step "prove the password pane is up before typing into it"
+    loop == {check: {from: pw2, mode: text, name: there, rect: [930, 350, 1400, 570], rect_at: [1920, 1080], scale: 2, words: [[password], [confirm]]}, do: [{settle: 4}], max: 12, see: {name: pw2}, until: {fact: there}}
   step "type the password"
-    when == [password]
-    rect == [943, 383, 1161, 544]
-    rect_at == [1920, 1080]
     clear == true
     click == [1200, 448]
     settle == 2
     type == '{{ password }}'
     type_gap == 0.09
   step "confirm the password"
-    when == [password]
-    rect == [943, 383, 1161, 544]
-    rect_at == [1920, 1080]
     clear == true
     click == [1200, 544]
     settle == 2
     type == '{{ password }}'
     type_gap == 0.09
+  # AND THE TWO FIELDS ARE READ BACK, BECAUSE A FIELD THAT DID NOT TAKE IS AN ACCOUNT NOBODY CAN USE.
+  # The password box shows dots, so what is checked is that SOMETHING is in each row.
+  step "prove both password rows hold characters"
+    loop == {check: {from: pwdots, mode: matches, name: filled, pattern: ".{4,}", rect: [960, 430, 1400, 570], rect_at: [1920, 1080], scale: 3}, do: [{settle: 3}], max: 6, see: {name: pwdots}, until: {fact: filled}}
   # AND THE NAME FIELD IS READ BACK WHERE IT CAN STILL BE SEEN - ON THE ACCOUNT PAGE, BEFORE
   # `Next` IS PRESSED, because a disk that installs an account nobody can log into looks exactly
   # like a successful install and only fails twenty minutes later in the ssh stage.
