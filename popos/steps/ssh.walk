@@ -94,7 +94,19 @@ walkthrough "linux-popos - sshd"
   #
   # The old line clicked (1092, 1048) - one item in pop's dock, at a position that depends on which
   # icons that install decided to put there. A shortcut the window manager handles does not.
-  press ctrl+alt+t, waiting 20s, named "open the terminal"
+  # THE SHORTCUT IS TRIED, THEN THE DOCK ICON - BECAUSE THE SHORTCUT DID NOT OPEN A TERMINAL HERE.
+  #
+  # MEASURED ON RUN 44942046620: the login worked (its recording is a full GNOME desktop with the
+  # dock) and the stage still failed `wait for sshd` with `connection refused`, which is what a guest
+  # looks like when every command was typed into a desktop that has no terminal on it. `ctrl+alt+t`
+  # is a GNOME setting this image does not carry.
+  #
+  # THE DOCK HAS A TERMINAL ICON: the dark `>_` tile in the recording, centred at about (1087, 1038)
+  # on a 1920x1080 frame. So the shortcut is pressed, the prompt is waited for, and the dock tile is
+  # clicked only if no prompt appeared - a fallback that is a fact on screen, not a fixed sleep.
+  press ctrl+alt+t, waiting 8s, named "open the terminal"
+  step "the terminal is open, or the dock icon is clicked"
+    loop == {check: {from: term, mode: text, name: up, rect: [200, 420, 1700, 900], rect_at: [1920, 1080], scale: 1, words: [[pop-os], [popos]]}, do: [{click: [1087, 1038], settle: 6}], max: 4, see: {name: term}, until: {fact: up}}
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
