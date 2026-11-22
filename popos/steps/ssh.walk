@@ -105,12 +105,20 @@ walkthrough "linux-popos - sshd"
   # on a 1920x1080 frame. So the shortcut is pressed, the prompt is waited for, and the dock tile is
   # clicked only if no prompt appeared - a fallback that is a fact on screen, not a fixed sleep.
   press ctrl+alt+t, waiting 8s, named "open the terminal"
+  # THREE WAYS IN, IN ORDER, BECAUSE TWO WERE MEASURED TO FAIL ON THIS IMAGE.
+  #
+  # MEASURED, in the recordings: `ctrl+alt+t` does nothing (it is a GNOME setting pop does not carry),
+  # and the first dock click at (1087,1038) missed as well. The frame that shows the dock after a
+  # successful login puts the terminal tile - the dark `>_` square - at the CENTRE (1087,1040) of a
+  # dock whose icons are 64 px wide and whose row is at y 1008..1072; the click has to land on the
+  # window, and a click that arrives while the dock is still animating in is discarded.
+  #
+  # SO EACH ATTEMPT DOES ALL THREE: click the tile, press Super and type the name (GNOME's own
+  # search, which does not depend on a dock position at all), then Return. Whichever one worked, the
+  # prompt appears and the loop stops; a step that presses all three when one is enough costs a few
+  # seconds and cannot lose the terminal to a single missed click.
   step "the terminal is open, or the dock icon is clicked"
-    # THE PROMPT IS MATCHED BY THE WORD THAT IS ACTUALLY IN IT. The guest's own prompt is
-    # `vmuser@pop-os:~$`, and the two spellings that have been seen for the host part are covered;
-    # the tile is clicked on every attempt the prompt is missing, so the fallback is used exactly as
-    # often as it is needed.
-    loop == {check: {from: term, mode: text, name: up, rect: [200, 420, 1700, 900], rect_at: [1920, 1080], scale: 1, words: [[pop-os], [popos], [vmuser]]}, do: [{click: [1087, 1038], settle: 6}], max: 6, see: {name: term}, until: {fact: up}}
+    loop == {check: {from: term, mode: text, name: up, rect: [200, 420, 1700, 900], rect_at: [1920, 1080], scale: 1, words: [[pop-os], [popos], [vmuser]]}, do: [{click: [1087, 1040], settle: 4}, {key: meta_l, settle: 3}, {type: terminal, type_gap: 0.12, settle: 3}, {key: ret, settle: 8}], max: 5, see: {name: term}, until: {fact: up}}
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
