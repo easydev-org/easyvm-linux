@@ -281,13 +281,32 @@ walkthrough "linux-zorin - sshd"
     type_gap == 0.09
   # THE ENABLE IS NOT DECORATION: `policy-rc.d returned 101` means the package install was told NOT
   # to start the service, so this is the step that makes sshd run at all.
-  step "enable ssh at boot"
-    run == sudo systemctl enable ssh
-    settle == 5
+  # ENABLE AND START AS ONE NON-BLOCKING REQUEST, THE WAY THE SIBLINGS THAT PASS DO.
+  #
+  # MEASURED ON RUN 44959488705, whose ssh stage reached step 24 of 29 - past the greeter, the login
+  # and the terminal - and then spent its ten minutes on `connection refused`:
+  #
+  #	wait for sshd: nothing accepted ssh on 172.30.0.1:2222 within 10m0s
+  #
+  # Two separate `systemctl enable` and `systemctl start` are two chances for the unit to be queued
+  # and not run, and `start` was measured on the opensuse guest to hold the console for minutes. One
+  # `enable --now --no-block` is the request the passing guests use, and the step after it proves the
+  # result instead of assuming it.
+  step "enable and start ssh in one request"
+    run == sudo systemctl enable --now --no-block ssh
+    settle == 10
     type_gap == 0.09
-  step "start ssh now"
-    run == sudo systemctl start ssh
+  step "prove the unit is up before waiting on a port"
+    run == systemctl is-active ssh; ss -lnt 2>/dev/null | grep ":22 " || echo NO_LISTENER
+    settle == 6
+    type_gap == 0.09
+  step "sshd authenticates against shadow, because this image ships no PAM service file"
+    run == sudo sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf "UsePAM no\nPasswordAuthentication yes\nKbdInteractiveAuthentication no\n" > /etc/ssh/sshd_config.d/99-vm.conf; sshd -T 2>&1 | grep -iE "^(usepam|passwordauthentication|kbdinteractive)"'
     settle == 8
+    type_gap == 0.09
+  step "restart so the drop-in is read"
+    run == sudo systemctl restart --no-block ssh; sleep 8; systemctl is-active ssh
+    settle == 14
     type_gap == 0.09
   step "wait for sshd"
     require_ssh == true
