@@ -76,10 +76,11 @@ permissions:
 jobs:
   install:
     if: github.event_name != 'workflow_dispatch' || inputs.from_tag == ''
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: opensuse-leap-16.1
       disks_repository: ${{ inputs.disks_repository }}
@@ -101,10 +102,11 @@ jobs:
   ssh:
     needs: [install]
     if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-opensuse-leap-16.1')
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: opensuse-leap-16.1
       disks_repository: ${{ inputs.disks_repository }}
@@ -123,10 +125,11 @@ jobs:
   vm:
     needs: [ssh]
     if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-opensuse-leap-16.1' || inputs.from_tag == 'linux-opensuse-leap-16.1-ssh')
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: opensuse-leap-16.1
       disks_repository: ${{ inputs.disks_repository }}

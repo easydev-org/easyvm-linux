@@ -66,10 +66,11 @@ jobs:
   install:
     # `from_tag:` NAMES A PUBLISHED DISK AND THE CHAIN STARTS FROM IT, so the install does not run.
     if: github.event_name != 'workflow_dispatch' || inputs.from_tag == ''
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: kubuntu
       disks_repository: ${{ inputs.disks_repository }}
@@ -89,10 +90,11 @@ jobs:
   ssh:
     needs: [install]
     if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-kubuntu')
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: kubuntu
       disks_repository: ${{ inputs.disks_repository }}
@@ -111,10 +113,11 @@ jobs:
   vm:
     needs: [ssh]
     if: always() && !cancelled() && (github.event_name != 'workflow_dispatch' || inputs.from_tag == '' || inputs.from_tag == 'linux-kubuntu' || inputs.from_tag == 'linux-kubuntu-ssh')
-    uses: easydev-org/easyvm/.github/workflows/stage.yml@main
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.2
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
+      image_tag: v0.0.2
       disk_gb: "20"
       group: kubuntu
       disks_repository: ${{ inputs.disks_repository }}
