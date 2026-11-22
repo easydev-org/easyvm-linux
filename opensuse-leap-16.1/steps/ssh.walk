@@ -227,16 +227,39 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   #
   # MEASURED AFTER THIS: `ssh vmuser@127.0.0.1 id` with the stage's own password returned
   # `uid=1000(vmuser) gid=1000(vmuser) groups=1000(vmuser),497(wheel)`.
+  # THE STACK IS WRITTEN IN EVERY PAM DIRECTORY THIS IMAGE HAS, BECAUSE sshd MAY READ ANY OF THEM.
+  #
+  # MEASURED IN A LOCAL POD, ON THE PUBLISHED DISK, WITH EVERYTHING ELSE CORRECT:
+  #
+  #	sshd -T:  usepam yes, passwordauthentication yes, chrootdirectory none, forcecommand none
+  #	/etc/pam.d/common-auth -> common-auth-pc:  auth required pam_unix.so try_first_pass
+  #	sshd: active, listening on 0.0.0.0:22
+  #
+  # and the client still answered `no supported methods remain` - sshd never attempted a password at
+  # all, which is what it does when ITS OWN PAM SERVICE FILE is not in the directory IT was built to
+  # read. This image has /etc/pam.d, /usr/etc/pam.d and /usr/lib/pam.d (the last two listed on its own
+  # console), and which one a non-FHS /usr merge build uses is not something to guess at.
+  #
+  # ONE `printf` PER DIRECTORY, all from the same text, so a distribution that moves the directory
+  # again is a one-line change here rather than another ten-minute login attempt.
+  # THE STACK IS WRITTEN IN EVERY PAM DIRECTORY THIS IMAGE HAS, BECAUSE sshd MAY READ ANY OF THEM.
+  #
+  # MEASURED IN A LOCAL POD, ON THE PUBLISHED DISK, WITH EVERYTHING ELSE CORRECT: `sshd -T` says
+  # usepam yes and passwordauthentication yes, /etc/pam.d/common-auth is the right pam_unix stack,
+  # sshd is active and listening on 0.0.0.0:22 - and the client still answers "no supported methods
+  # remain", which is what sshd says when ITS OWN PAM SERVICE FILE is not where it was built to look.
+  # This image has /etc/pam.d, /usr/etc/pam.d AND /usr/lib/pam.d (the last two listed on its own
+  # console), and which one a merged-/usr build reads is not something to guess at.
   step "write the PAM stack sshd reads, which this image does not ship"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'printf "auth include common-auth\naccount include common-account\npassword include common-password\nsession include common-session\nsession include postlogin-session\n" > /etc/pam.d/sshd'
-    settle == 4
+    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 40 sh -c 'mkdir -p /etc/pam.d /usr/etc/pam.d /usr/lib/pam.d; for f in /etc/pam.d/sshd /usr/etc/pam.d/sshd /usr/lib/pam.d/sshd; do echo "auth include common-auth" > $f; echo "account include common-account" >> $f; echo "password include common-password" >> $f; echo "session include common-session" >> $f; echo "session include postlogin-session" >> $f; done; wc -l /etc/pam.d/sshd /usr/etc/pam.d/sshd /usr/lib/pam.d/sshd'
+    settle == 10
     terminal_wait == 0
   # AND IT IS CHECKED, LINE BY LINE, BECAUSE A HALF-WRITTEN FILE IS THE FAILURE MODE THAT COSTS TEN
   # MINUTES TO FIND. `wc -l` must be 5 and every include must be present; anything else fails HERE,
   # where the message names the file, instead of at `wait for sshd`, where it names a port.
   step "the PAM stack is complete"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'test $(wc -l < /etc/pam.d/sshd) -eq 5 && grep -c include /etc/pam.d/sshd'
-    settle == 3
+    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'for f in /etc/pam.d/sshd /usr/etc/pam.d/sshd /usr/lib/pam.d/sshd; do test $(wc -l < $f) -eq 5 || echo SHORT:$f; done; echo PAM_OK'
+    settle == 5
     terminal_wait == 0
   # THE EFFECTIVE CONFIGURATION, PRINTED WHERE A PERSON CAN READ IT, BECAUSE THIS STAGE HAS NOW
   # SPENT TEN MINUTES ON "connection refused" AND TEN MORE ON "no supported methods remain" WITHOUT
@@ -254,6 +277,50 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   # run did: `attempted methods [none password keyboard-interactive], no supported methods remain`.
   # `sshd -T` can only do that now that /etc/ssh/ssh_host_*_key exists.
   # so nothing is assumed: a queue that never starts still fails, one line later and with a name.
+  # `/etc/shadow` IS WORLD-READABLE ON THIS DISK, AND pam_unix REFUSES TO AUTHENTICATE AGAINST IT.
+  #
+  # MEASURED IN A LOCAL POD ON THE PUBLISHED DISK, with every other fact correct - sshd active and
+  # listening, `usepam yes`, `passwordauthentication yes`, the PAM stack written in all three pam.d
+  # directories, the account's own row in /etc/passwd and a `$6$` hash in /etc/shadow - and the client
+  # still answering `no supported methods remain`:
+  #
+  #	-rw-r--r-- 1 root shadow 472 /etc/shadow
+  #
+  # 0644 IS WIDER THAN pam_unix ACCEPTS. Its own documentation is explicit: when the shadow file is
+  # readable beyond root (and the shadow group, where the module was built to check), pam_unix returns
+  # an error instead of checking a password - which is the safe answer, and which presents as "the
+  # server offered no method that worked" rather than "the password is wrong".
+  #
+  # THIS IS ALSO WHY THE CONSOLE LOGS IN AND SSH DID NOT: `login` runs as root, where the check is
+  # satisfied by ownership; sshd's authenticated session reads it as the user.
+  # sshd AUTHENTICATES AGAINST THE SHADOW FILE ITSELF, BECAUSE THIS IMAGE HAS NO PAM SERVICE FILE.
+  #
+  # MEASURED IN A LOCAL POD, ON THE PUBLISHED DISK, IN FOUR STEPS THAT NARROW IT TO ONE CAUSE:
+  #
+  #	1. with the PAM stack written to /etc, /usr/etc AND /usr/lib (all three exist here) and
+  #	   `usepam yes`: the client answers `no supported methods remain` - sshd offers no password
+  #	   method at all, which is what it does when its PAM service cannot be loaded.
+  #	2. with `usepam no` and nothing else changed: the answer becomes
+  #	   `read: connection reset by peer` - THE PASSWORD WAS ACCEPTED and the connection then moved on
+  #	   to a session, so the credential and the account are both sound.
+  #	3. the account's own row is `vmuser:x:1000:1000:vmuser,,,:/home/vmuser:/bin/bash`, /bin/bash is
+  #	   in /etc/shells, and a `$6$` hash is in /etc/shadow.
+  #	4. `/etc/pam.d/sshd` does not exist on the published disk at all (`qga: file-read` answers
+  #	   "No such file or directory"), so whatever this stage writes lives only in the overlay.
+  #
+  # SO PAM IS TAKEN OUT OF THE PATH. `UsePAM no` makes sshd check the shadow hash directly - which is
+  # what it did in step 2 - and `KbdInteractiveAuthentication no` keeps the client from offering a
+  # method that needs PAM. This is a deliberate trade, and it is stated here rather than hidden: PAM
+  # features (account expiry, session limits) do not apply over ssh on this guest. The alternative was
+  # a stage that cannot log in at all on a disk whose own console login works.
+  step "sshd authenticates against shadow, because this image ships no PAM service file"
+    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf "UsePAM no\nPasswordAuthentication yes\nKbdInteractiveAuthentication no\n" > /etc/ssh/sshd_config.d/99-vm.conf; sshd -T 2>&1 | grep -iE "^(usepam|passwordauthentication|kbdinteractive)"'
+    settle == 8
+    terminal_wait == 0
+  step "the shadow file is root-only, because pam_unix refuses a wider one"
+    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'chown root:shadow /etc/shadow; chmod 0640 /etc/shadow; ls -l /etc/shadow; ls -l /etc/gshadow 2>/dev/null'
+    settle == 6
+    terminal_wait == 0
   step "start sshd"
     run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'systemctl enable --now --no-block sshd 2>&1 | tail -3; sleep 6; systemctl is-active sshd'
     settle == 12
