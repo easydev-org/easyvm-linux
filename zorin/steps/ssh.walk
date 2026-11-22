@@ -271,9 +271,27 @@ walkthrough "linux-zorin - sshd"
     run == sudo apt-get update
     settle == 60
     type_gap == 0.09
+  # THE POLKIT PANEL COMES BACK WHILE `apt-get` RUNS, AND ITS PASSWORD BOX EATS THE NEXT COMMAND.
+  #
+  # MEASURED ON RUN 44959488705's zorin ssh recording at 500 s: a centred "Authentication Required /
+  # To install or remove software, you need to authenticate" panel with
+  # "Sorry, that didn't work. Please try again." in red, and BEHIND IT the terminal already showing
+  # the first line of this step. So the password that was meant for the terminal went into polkit,
+  # polkit refused it, and every later command went nowhere - sshd was never enabled and 22 refused
+  # for ten minutes, which is what `wait for sshd` reported.
+  #
+  # The panel is dismissed here, AFTER the install rather than only before it, because that is when
+  # it appears: `apt-get` is what wakes packagekit. Escape closes a polkit prompt on GNOME and
+  # Cancel (860,700 on that frame) is the same act; pressing both when no panel is up costs nothing.
   step "install openssh-server"
     run == sudo apt-get install -y openssh-server
     settle == 90
+    type_gap == 0.09
+  step "dismiss the authentication panel the install woke up"
+    do == [{key: esc, settle: 2}, {click: [860, 700], settle: 2}, {key: esc, settle: 3}]
+  step "stop packagekit again, so it cannot ask again"
+    run == sudo systemctl stop packagekit packagekit.service 2>/dev/null; sudo systemctl mask packagekit 2>/dev/null; systemctl is-active packagekit || echo PACKAGEKIT_STOPPED
+    settle == 8
     type_gap == 0.09
   step "allow password authentication"
     run == sudo sed -i "s/^#\?\s*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config ; sudo grep -i "^PasswordAuthentication" /etc/ssh/sshd_config
