@@ -477,7 +477,17 @@ walkthrough "linux-fedora-workstation - sshd"
   # map, and a loop that PRESSED a key to "help" would be pressing it into whatever had the focus -
   # which is exactly how the commands ended up in the search box.
   step "the terminal is open, with a prompt"
-    loop == {check: {from: shell, mode: text, name: ready, rect: [300, 280, 1330, 810], rect_at: [1920, 1080], scale: 1, words: [[vmuser@fedora]]}, do: [{settle: 4}], max: 4, see: {name: shell}, until: {fact: ready}}
+    # THE BAND IS THE PROMPT'S OWN ROW, BECAUSE A WIDE ONE MISREADS THE NAME.
+    #
+    # MEASURED ON RUN 44964669064's OWN LAST FRAME, where the terminal is plainly up with
+    # `vmuser@fedora:~$` and the cursor after it. Read back with tesseract:
+    #
+    #	wide  [300,280,1330,810]  ->  "vnuser@fedora:~$ fj"      <- the m became an n
+    #	narrow [600,340,720,370]  ->  "vmuser@fedora"
+    #
+    # THE WINDOW WAS OPEN THE WHOLE TIME; the reader was looking at eight hundred rows of mostly
+    # empty terminal and lost one letter of a sixteen-character word. A band one line tall cannot.
+    loop == {check: {from: shell, mode: text, name: ready, rect: [560, 330, 900, 380], rect_at: [1920, 1080], scale: 3, words: [[vmuser@fedora]]}, do: [{settle: 4}], max: 8, see: {name: shell}, until: {fact: ready}}
   # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
   #
   # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
