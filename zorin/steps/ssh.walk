@@ -311,9 +311,26 @@ walkthrough "linux-zorin - sshd"
     run == sudo pkill -9 packagekitd
     settle == 3
     type_gap == 0.09
-  step "install openssh-server"
-    run == sudo apt-get install -y openssh-server
-    settle == 90
+  # THE INSTALL RUNS IN THE FOREGROUND AND IS POLLED, BECAUSE `apt-get` CAN SIT ON A PROMPT.
+  #
+  # MEASURED ON RUN 44985080074: the stage reached `wait for sshd` with no `/etc/ssh/sshd_config` at
+  # all, so the package was never unpacked. `apt-get install -y` still asks when it wants to replace a
+  # conffile or run an interactive postinst, and a prompt on a terminal that the walk types into is a
+  # question nobody answers. `DEBIAN_FRONTEND=noninteractive` plus `-o Dpkg::Options::=--force-confnew`
+  # removes both kinds of question, and `policy-rc.d` is set to not start services (which the stage
+  # starts explicitly a few steps below, as its own comment already says).
+  step "install openssh-server, with no question it could stop at"
+    run == sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confnew openssh-server
+    settle == 120
+    type_gap == 0.09
+  # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
+  #
+  # MEASURED ON RUN 44985080074: the stage reached `wait for sshd` and spent its ten minutes on a
+  # guest whose `/etc/ssh/sshd_config` had not appeared yet, which is what a package that is still
+  # unpacking looks like. A fixed pause is a guess about the network; the file is the fact.
+  step "wait for the package to land its config"
+    run == sudo sh -c 'i=0; while [ $i -lt 40 ] && [ ! -f /etc/ssh/sshd_config ]; do i=$((i+1)); sleep 5; done; test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING'
+    settle == 20
     type_gap == 0.09
   step "prove the install produced its unit and config"
     run == test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK; systemctl list-unit-files 2>/dev/null | grep -E "^ssh" || echo NO_SSH_UNIT
