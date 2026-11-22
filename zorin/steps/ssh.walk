@@ -283,10 +283,40 @@ walkthrough "linux-zorin - sshd"
   # The panel is dismissed here, AFTER the install rather than only before it, because that is when
   # it appears: `apt-get` is what wakes packagekit. Escape closes a polkit prompt on GNOME and
   # Cancel (860,700 on that frame) is the same act; pressing both when no panel is up costs nothing.
+  # THE INSTALL NEVER HAPPENED, AND `apt-get` WAS NOT THE THING THAT FAILED - POLKIT WAS.
+  #
+  # MEASURED ON RUN 44963357510's zorin ssh recording at 600 s, in the terminal's own words:
+  #
+  #	vmuser@vmuser-Standard-PC-Q35-ICH9-2009:~$ sudo sed -i ... /etc/ssh/sshd_config
+  #	sed: can't read /etc/ssh/sshd_config: No such file or directory
+  #	vmuser@vmuser-Standard-PC-Q35-ICH9-2009:~$ sudo systemctl enable --now ssh
+  #	Failed to enable unit: Unit file ssh.service does not exist.
+  #	vmuser@...:~$ systemctl is-active ssh; ... | grep ":22 "
+  #	inactive
+  #	NO_LISTENER
+  #
+  # THERE IS NO sshd_config AND NO ssh.service, so `openssh-server` was NEVER INSTALLED. Dismissing
+  # the panel after the install was too late by construction: the password that polkit took was the
+  # one `apt-get` needed, so apt never ran.
+  #
+  # SO NOTHING IS ALLOWED TO ASK. `sudo -v` refreshes the sudo timestamp first (so the install itself
+  # needs no password at all), and packagekitd is KILLED rather than stopped - a masked unit can still
+  # be started by dbus activation, while a killed daemon with its unit masked cannot come back inside
+  # the minute this install takes.
+  step "refresh sudo so the install asks for nothing"
+    run == printf '%s\n' {{ password }} | sudo -S -v
+    settle == 4
+    type_gap == 0.09
+  step "kill packagekit, which is what raises the panel"
+    run == sudo pkill -9 packagekitd
+    settle == 3
+    type_gap == 0.09
   step "install openssh-server"
     run == sudo apt-get install -y openssh-server
     settle == 90
     type_gap == 0.09
+  step "prove the install produced its unit and config"
+    run == test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK; systemctl list-unit-files 2>/dev/null | grep -E "^ssh" || echo NO_SSH_UNIT
   step "dismiss the authentication panel the install woke up"
     do == [{key: esc, settle: 2}, {click: [860, 700], settle: 2}, {key: esc, settle: 3}]
   step "stop packagekit again, so it cannot ask again"
