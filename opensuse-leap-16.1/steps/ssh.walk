@@ -313,9 +313,20 @@ walkthrough "linux-opensuse-leap-16.1 - sshd"
   # method that needs PAM. This is a deliberate trade, and it is stated here rather than hidden: PAM
   # features (account expiry, session limits) do not apply over ssh on this guest. The alternative was
   # a stage that cannot log in at all on a disk whose own console login works.
-  step "sshd authenticates against shadow, because this image ships no PAM service file"
-    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf "UsePAM no\nPasswordAuthentication yes\nKbdInteractiveAuthentication no\n" > /etc/ssh/sshd_config.d/99-vm.conf; sshd -T 2>&1 | grep -iE "^(usepam|passwordauthentication|kbdinteractive)"'
-    settle == 8
+  # /etc/pam.d/sshd IS WRITTEN BEFORE sshd STARTS, AND sshd IS TOLD TO USE IT.
+  #
+  # MEASURED IN A LOCAL POD ON THE PUBLISHED DISK, WHICH NARROWS IT TO THE ALGORITHM RATHER THAN THE
+  # ACCOUNT: `id vmuser` -> uid=1000 groups=1000,497(wheel); `/etc/shadow` is `-rw-r----- root shadow`;
+  # the row is `vmuser:$6$CEnicalAB0MUgoJc$...`; `passwd -S` says `P`. So the credential is sound and
+  # the console proves it - and with `UsePAM no` sshd still refuses it, because that path makes sshd
+  # compare with its OWN `crypt()`, and this image's crypt does not answer the `$6$` (SHA-512) scheme
+  # the hash uses. The daemon has no way to say so; it reports "no supported methods".
+  #
+  # SO PAM DOES THE COMPARISON, which is what the distribution itself uses for `login`. The service
+  # file is written here, BEFORE sshd is started, and the drop-in puts `UsePAM yes` back.
+  step "the PAM service file exists before sshd starts"
+    run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 30 sh -c 'mkdir -p /etc/pam.d; printf "auth include common-auth\naccount include common-account\npassword include common-password\nsession include common-session\nsession include postlogin-session\n" > /etc/pam.d/sshd; mkdir -p /etc/ssh/sshd_config.d; printf "UsePAM yes\nPasswordAuthentication yes\nKbdInteractiveAuthentication yes\n" > /etc/ssh/sshd_config.d/99-vm.conf; test -f /etc/pam.d/sshd && echo PAM_FILE_OK; wc -l /etc/pam.d/sshd; sshd -T 2>&1 | grep -iE "^(usepam|passwordauthentication|kbdinteractive)"'
+    settle == 10
     terminal_wait == 0
   step "the shadow file is root-only, because pam_unix refuses a wider one"
     run == printf '%s\n' {{ password }} | sudo -S -p '' timeout 20 sh -c 'chown root:shadow /etc/shadow; chmod 0640 /etc/shadow; ls -l /etc/shadow; ls -l /etc/gshadow 2>/dev/null'
