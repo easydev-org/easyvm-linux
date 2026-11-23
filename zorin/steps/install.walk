@@ -320,26 +320,27 @@ step "who are you"
 # SO THE DOWNLOAD IS DECLINED AND THE WAIT BECOMES A FACT INSTEAD OF A NUMBER. `Skip` is the button
 # the panel offers, and every step after this one clicks rather than types - the same reason the
 # clock is not what decides when an install has finished.
+# THE LANGUAGE-PACK OFFER IS OPTIONAL, AND TREATING IT AS MANDATORY COST A WHOLE RUN.
+#
+# MEASURED on run 45227409257: this step ran out its sixty rounds on a screen reading
+#
+#	» Installing system,
+#
+# - i.e. the download panel never appeared, the install was already under way, and the step that was
+# meant to SKIP an optional prompt instead waited ten minutes for it and then failed the leg. The
+# previous run (45214582817) is the one where it DID appear, and its estimate was 273:58 of a download
+# that could not finish.
+#
+# SO IT IS ONE READ AND ONE GATED CLICK, NOT A LOOP. `when:` reads the frame and acts only if the
+# words are on it; when they are not, the step is skipped and the next one waits for the installer's
+# own end mark. A prompt that may or may not appear cannot be waited for - only answered.
 step "decline the language-pack download, if it is offered"
-  repeat
-    do
-      item "read the panel"
-        read
-          name panel
-    until
-      bind offering
-      source panel
-      mode text
-      rect [600, 760, 1330, 850]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Skip]]
-    max 60
-    pause 5
-
-step "skip it"
   input 1280 800
   settle 10
+  rect [600, 760, 1330, 850]
+  rect_at [1920, 1080]
+  scale 1
+  when [Skip]
 
 
 # THE INSTALLER'S OWN END MARK, WHICH IS THE SAME WITNESS mx USES. Calamares draws a page whose text
