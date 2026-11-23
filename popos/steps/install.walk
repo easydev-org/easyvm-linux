@@ -477,25 +477,50 @@ step "drive encryption - don't encrypt"
   settle 15
 
 
-step "the install has started"
+# "THE INSTALL HAS STARTED" IS NOT "THE INSTALL HAS FINISHED", AND THIS LEG WAS KILLED ON THE FIRST.
+#
+# MEASURED on run 45234230218, the first popOS leg that ever reached the install: the published disk
+# was 562 MiB, and the note in the publish step - written while measuring other guests - calls
+# "popos at 2.5 GiB" the smallest real one. 562 MiB is the ESP and a partly-written root.
+#
+# The step below waited for ONE of `Extracting` / `Installing` / `Copying` to appear and then settled
+# thirty-five seconds. An installer announces that word in its first seconds and takes minutes to copy
+# - so the machine was stopped about thirty seconds into a multi-gigabyte write.
+#
+# `popos-smoke` then reported the truth on the console:
+#
+#	BdsDxe: failed to load Boot0002 "UEFI Misc Device" ... Not Found
+#	BdsDxe: No bootable option or device was found.
+#
+# NO BOOT LOADER, because the boot loader is written at the end.
+#
+# SO THE INSTALLER'S OWN END MARK IS WAITED FOR, AND IT IS THE ONE ubuntu USES - this is the same
+# installer underneath, and ubuntu's leg has passed for weeks with these words: "installed and ready
+# to use" / "restart to complete the installation" / "restart now". The budget is forty-five minutes,
+# which is generous for an image ubuntu copies in about eight.
+step "the installer finishes"
   repeat
     do
       item
-        settle 6
+        input 420 300
+        settle 20
+      item
+        settle 2
       item "read the screen"
         read
-          name started
+          name screen
     until
-      bind begun
-      source started
+      bind done
+      source screen
       mode text
-      rect [491, 722, 598, 784]
+      rect [690, 630, 1270, 730]
       rect_at [1920, 1080]
-      scale 3
-      words [[Extracting], [Installing], [Copying]]
-    max 20
-  settle 35
+      words [[installed, and, ready, to, use], [restart, to, complete, the, installation], [restart, now]]
+    max 135
 
+
+step "give the installer its last few seconds, because \"ready to use\" is not \"flushed\""
+  settle 20
 
 
 step "stop the machine"
