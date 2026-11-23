@@ -168,27 +168,69 @@ step "users - allow a short password"
 #
 # That is why the run reached `next to the partitions page` with `Password is too short` beside both
 # pairs: nothing was ever typed into them.
-step "users - password"
+# EACH FIELD IS CLICKED, CLEARED, AND THEN TYPED - AND THE CLEAR IS THE FIX.
+#
+# MEASURED on run 45202448379, t=200s: both boxes hold something and the installer answers "Your
+# passwords do not match!" - the left box shows five dots and the right fifteen. The right one had been
+# typed into TWICE, because `input text ... at X Y` clicks and then types WITHOUT clearing.
+
+step "users - password - click it"
+  input 722 480
+  settle 1
+
+
+step "users - password - clear what is there"
+  input ctrl+a
+  settle 1
+
+
+step "users - password - type the value"
   input text "{{ password }}"
-    at 722 480
   settle 2
 
 
-step "users - repeat password"
+step "users - repeat password - click it"
+  input 932 480
+  settle 1
+
+
+step "users - repeat password - clear what is there"
+  input ctrl+a
+  settle 1
+
+
+step "users - repeat password - type the value"
   input text "{{ password }}"
-    at 932 480
   settle 2
 
 
-step "users - administrator password"
+step "users - administrator password - click it"
+  input 722 597
+  settle 1
+
+
+step "users - administrator password - clear what is there"
+  input ctrl+a
+  settle 1
+
+
+step "users - administrator password - type the value"
   input text "{{ password }}"
-    at 722 597
   settle 2
 
 
-step "users - administrator repeat password"
+step "users - administrator repeat password - click it"
+  input 932 597
+  settle 1
+
+
+step "users - administrator repeat password - clear what is there"
+  input ctrl+a
+  settle 1
+
+
+step "users - administrator repeat password - type the value"
   input text "{{ password }}"
-    at 932 597
   settle 3
 
 

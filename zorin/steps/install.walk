@@ -163,11 +163,11 @@ step "the updates pane is done"
       mode text
       rect [488, 285, 707, 355]
       rect_at [1920, 1080]
-      words [[updates, and, other, software]]
+      words [[installation, type]]
     max 60
 
 
-step "the keyboard pane is done"
+step "the first page Calamares draws is the installation type"
   repeat
     do
       item
@@ -181,7 +181,7 @@ step "the keyboard pane is done"
       mode text
       rect [488, 285, 707, 355]
       rect_at [1920, 1080]
-      words [[installation, type], [keyboard, layout]]
+      words [[updates, and, other, software]]
     max 80
 
 
