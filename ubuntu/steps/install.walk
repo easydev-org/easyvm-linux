@@ -113,8 +113,35 @@ step "the screen is the one this file was written against"
 
 
 step "welcome / language"
-  input 1355 848
-  settle 12
+  # A CLICK THAT ASSUMES THE BUTTON IS READY IS A CLICK THAT CAN MISS.
+  #
+  # MEASURED twice on ubuntu install (runs 45107265735 and 45120549330): the frame was the installer's
+  # own "Welcome to Ubuntu / Choose your language" page, the click at 1355 848 landed on a button that
+  # had drawn but not yet taken input, and the NEXT step - `wait for the accessibility page` - spent
+  # its 24 attempts on a screen that never left the language page.
+  #
+  # THE CLICK IS THEREFORE THE LOOP'S ACTION AND ITS OWN RESULT IS THE CONDITION: press until the
+  # language page is gone. `mode: text` with `without:` is the frame form of that question, and the
+  # words are the page's own - the title and the button label.
+  repeat
+    do
+      item
+        input 1355 848
+      item
+        settle 12
+      item "read the screen"
+        read
+          name langpage
+    until
+      bind moved
+      source langpage
+      mode text
+      without [welcome, language, continue]
+      rect [0, 0, 1920, 1080]
+      rect_at [1920, 1080]
+      scale 1
+    max 6
+    pause 5
 
 
 step "wait for the accessibility page, because a click that assumes the page before it is a click that can miss"
