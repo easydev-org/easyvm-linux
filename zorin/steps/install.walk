@@ -356,8 +356,19 @@ step "the installer finishes"
       bind done
       source screen
       mode text
-      rect [314, 241, 594, 331]
+      # THE REGION WAS mx's, AND mx's INSTALLER IS NOT AT THE SAME PLACE.
+      #
+      # MEASURED from this repository's own recording of run 45214582817 (the zorin install that
+      # reached the language-pack panel): the zorin installer window occupies roughly x 583..1335,
+      # y 285..860 on a 1920x1080 frame. The rect above was copied from mx's walk, where the window
+      # sits at x 314..594, y 241..331 - a DIFFERENT INSTALLER BUILD IN A DIFFERENT PLACE, and this
+      # step was therefore reading a region of empty wallpaper for its whole thirty-minute budget.
+      #
+      # The whole window is used rather than a caption-sized box, because the completion page's text
+      # position is not something this repository has measured for zorin - only mx's.
+      rect [583, 285, 1335, 860]
       rect_at [1920, 1080]
+      scale 1
       words [[congratulations], [completed, the, installation], [All, done]]
     max 180
     pause 10
