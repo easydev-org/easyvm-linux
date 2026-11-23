@@ -360,6 +360,39 @@ step "summary - install"
     max 6
 
 
+# PRESSING INSTALL IS NOT INSTALLING, AND THIS WALK USED TO STOP RIGHT THERE.
+#
+# MEASURED on run 45225677859: this leg reached 34/34 and failed at `publish the disk` with
+#
+#	publish the disk: the disk is 18 MiB, below the 512 MiB floor ... This is a qcow2 header with
+#	nothing written to it
+#
+# - the disk was the empty one from step 2. The step above waited only until the word "Installing"
+# appeared and then the NEXT step killed the machine, so calamares had been given about twelve
+# seconds to copy 3 GiB. Every step before this one was correct; the installation itself never ran.
+#
+# SO THE END OF THE INSTALL IS WAITED FOR, BY ITS OWN WITNESS. Calamares' progress page ends with a
+# completion page whose text says the installation finished, and the button it offers is `Done`. Both
+# are accepted because a build may phrase the page either way, and the budget is thirty minutes -
+# measured on mx, whose install copies the same image in about eight.
+step "the installation runs to its end"
+  repeat
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name progress
+    until
+      bind finished
+      source progress
+      mode text
+      rect [314, 241, 1600, 900]
+      rect_at [1920, 1080]
+      scale 1
+      words [[All, done], [installation, completed], [finished]]
+    max 120
+
 
 step "stop the machine"
   stop kill
