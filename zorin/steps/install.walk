@@ -301,8 +301,65 @@ step "who are you"
   settle 20
 
 
-step "the install runs, as measured"
-  settle 2400
+# THE INSTALLER ASKS TO DOWNLOAD LANGUAGE PACKS, AND ITS OWN ESTIMATE IS FOUR AND A HALF HOURS.
+#
+# MEASURED on run 45214582817, whose recording ends at t=3290 after 55 minutes on this step:
+#
+#	Install - Zorin OS 18
+#	▶ Downloading language packs (273:58 remaining)...
+#	[====                                        ]            [Skip]
+#
+# 273:58 IS MINUTES AND SECONDS, i.e. FOUR HOURS THIRTY-THREE MINUTES - the guest has no route to the
+# internet, so Calamares' download never advances and never fails. The old step waited a fixed 2400 s
+# and then killed the machine, so the disk that got published held a half-applied image with NO BOOT
+# LOADER. `zorin-smoke` then reported the truth on the console:
+#
+#	BdsDxe: failed to load Boot0002 "UEFI Misc Device" ... Not Found
+#	BdsDxe: No bootable option or device was found.
+#
+# SO THE DOWNLOAD IS DECLINED AND THE WAIT BECOMES A FACT INSTEAD OF A NUMBER. `Skip` is the button
+# the panel offers, and every step after this one clicks rather than types - the same reason the
+# clock is not what decides when an install has finished.
+step "decline the language-pack download, if it is offered"
+  repeat
+    do
+      item "read the panel"
+        read
+          name panel
+    until
+      bind offering
+      source panel
+      mode text
+      rect [600, 760, 1330, 850]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Skip]]
+    max 60
+    pause 5
+
+step "skip it"
+  input 1280 800
+  settle 10
+
+
+# THE INSTALLER'S OWN END MARK, WHICH IS THE SAME WITNESS mx USES. Calamares draws a page whose text
+# says "All done" / "the installation ... completed", and until one of those is on screen the disk is
+# not finished - no matter how long the machine has been left alone.
+step "the installer finishes"
+  repeat
+    do
+      item "read the screen"
+        read
+          name screen
+    until
+      bind done
+      source screen
+      mode text
+      rect [314, 241, 594, 331]
+      rect_at [1920, 1080]
+      words [[congratulations], [completed, the, installation], [All, done]]
+    max 180
+    pause 10
 
 
 step "stop the machine"
