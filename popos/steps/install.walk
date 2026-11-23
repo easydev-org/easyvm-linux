@@ -147,12 +147,23 @@ step "the installer window is up"
       # the third distinct way this one step has failed (the App Store, then Popsicle, now a correct
       # window it could not read).
       #
-      # SO THE LANGUAGE PAGE'S OWN TWO FRAGMENTS ARE ACCEPTED. `Install Po` and `Language` are what
-      # tesseract reproduces reliably from that heading, and a bare desktop carries neither together -
-      # which is the rule the note above is about. The step AFTER this one already knows how to leave
-      # the language page (`select the language, all the way to the keyboard page`), so accepting it
-      # here joins the two halves that were already written.
-      words [[Clean, install], [Erase, disk], [Install, Ubuntu], [Install, Po, Language], [Choose, Language]]
+      # SO THE TWO FRAGMENTS TESSERACT PRODUCES EVERY TIME ARE ACCEPTED: `Install` AND `Poy`.
+      #
+      # MEASURED ACROSS TWO RUNS on the same page:
+      #
+      #	run 45225658892   Install Poy IN genre? a Language
+      #	run 45229527978   Install Poy IN genre * a Lang
+      #
+      # The heading is "Install Pop!_OS" over "Choose a Language", and the TAIL IS CUT SHORT
+      # INCONSISTENTLY - `Language` one run, `Lang` the next. A word-set requiring the third word
+      # therefore passes on one run and fails on the other, which is the worst kind of gate: it looks
+      # correct and is a coin flip.
+      #
+      # `Po` IS NOT A PREFIX MATCH. `says()` in internal/run/text.go normalises to letters and digits
+      # and then asks whether each wanted word is PRESENT WHOLE, so `Po` does not match `Poy` - the
+      # word to name is the one tesseract actually produced. A bare desktop carries neither `Install`
+      # nor `Poy`, which is the property the two-word rule above protects.
+      words [[Clean, install], [Erase, disk], [Install, Ubuntu], [Install, Poy]]
     max 100
 
 
