@@ -71,25 +71,35 @@ step "settle 2s"
   # of three, and the reference is the frame from a run where it was already up.
 
 step "wait for the installer window"
+  # THE WINDOW MUST BE DRAWN, NOT MERELY NAMED. `mode: text` passed as soon as the OCR could read
+  # "Welcome to Ubuntu" and "Choose your language" - and MEASURED on run 45120549330, from the mp4,
+  # the frame at that moment still had the page half painted: the language list was there but the
+  # Next button had not finished drawing, so the click that followed went into nothing and the walk
+  # sat on the language page for three minutes.
+  #
+  # A REFERENCE COMPARISON ANSWERS "IS THIS THE FINISHED PAGE", which a word list cannot: the words
+  # appear before the pixels settle. The reference is the frame this walk succeeded on, cut from that
+  # same run's recording.
   repeat
     do
       item
         input 420 300
       item
         settle 5
-      item
-        settle 2
       item "read the screen"
         read
           name screen
     until
       bind done
       source screen
-      mode text
-      rect [873, 208, 1133, 395]
+      mode like
+      reference reference/langpage.png
+      range [0.92, 1]
+      rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
-      words [[welcome, to, ubuntu], [choose, your, language]]
+      must true
     max 120
+    pause 5
 
 
 step "settle 3s"
@@ -113,35 +123,10 @@ step "the screen is the one this file was written against"
 
 
 step "welcome / language"
-  # A CLICK THAT ASSUMES THE BUTTON IS READY IS A CLICK THAT CAN MISS.
-  #
-  # MEASURED twice on ubuntu install (runs 45107265735 and 45120549330): the frame was the installer's
-  # own "Welcome to Ubuntu / Choose your language" page, the click at 1355 848 landed on a button that
-  # had drawn but not yet taken input, and the NEXT step - `wait for the accessibility page` - spent
-  # its 24 attempts on a screen that never left the language page.
-  #
-  # THE CLICK IS THEREFORE THE LOOP'S ACTION AND ITS OWN RESULT IS THE CONDITION: press until the
-  # language page is gone. `mode: text` with `without:` is the frame form of that question, and the
-  # words are the page's own - the title and the button label.
-  repeat
-    do
-      item
-        input 1355 848
-      item
-        settle 12
-      item "read the screen"
-        read
-          name langpage
-    until
-      bind moved
-      source langpage
-      mode text
-      without [welcome, language, continue]
-      rect [0, 0, 1920, 1080]
-      rect_at [1920, 1080]
-      scale 1
-    max 6
-    pause 5
+  # THE PAGE IS PROVEN DRAWN BY THE STEP ABOVE, so this click has something to land on. It keeps a
+  # `settle` for the repaint the click itself causes, which is the one wait a click still needs.
+  input 1355 848
+  settle 12
 
 
 step "wait for the accessibility page, because a click that assumes the page before it is a click that can miss"
