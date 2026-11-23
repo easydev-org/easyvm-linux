@@ -127,6 +127,15 @@ step "the full name field - type the value"
 
 
 step "the full name field - the field took it"
+  # THE READ WAS 203x27 PIXELS AT SCALE 8, AND TESSERACT ANSWERED `WETTER T | t`.
+  #
+  # MEASURED on run 45191149160's recording, t=110s: the field DID take the value - `vmuser` is in it
+  # and the green tick is beside it - and the step failed anyway, because an 8x enlargement of a
+  # 27-pixel-tall strip gives tesseract no baseline to work from. A rect that narrow is not a reading,
+  # it is a guess about where the glyphs sit.
+  #
+  # SO THE WHOLE ROW IS READ, WHICH IS WHAT `scale 3` IS FOR. The row is "What is your name?" plus the
+  # field plus its tick, and `vmuser` inside that is what says the field took the value.
   repeat
     do
       item
@@ -138,11 +147,11 @@ step "the full name field - the field took it"
       bind took
       source name_field
       mode text
-      rect [626, 362, 829, 389]
+      rect [620, 345, 870, 395]
       rect_at [1920, 1080]
-      scale 8
+      scale 3
       words [["{{ user }}"]]
-    max 4
+    max 8
   settle 2
 
 step "users - allow a short password"

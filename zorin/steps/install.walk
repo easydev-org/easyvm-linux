@@ -132,6 +132,23 @@ step "updates and other software, when this build shows it"
   when_not_any [[installation, type]]
 
 
+# THE TWO PAGES WERE WAITED FOR IN THE WRONG ORDER, AND THE WORDS PROVE IT.
+#
+# MEASURED on run 45191149160's own recording, t=860s: the page on screen is
+#
+#   Updates and other software
+#   [x] Download updates while installing Zorin OS
+#   [x] Install third-party software for graphics and Wi-Fi hardware ...
+#   [ ] Don't participate in the census
+#                                        [ Quit ]  [ Back ]  [ Continue ]
+#
+# - the UBUNTU-DERIVED updater page, whose title sits exactly where `rect [488, 285, 707, 355]` looks.
+# The step named "the updates pane is done" was waiting for `installation type`, which is the NEXT
+# page, so it could never be satisfied; and the step after it accepted `updates and other software`,
+# which is THIS page. The two word-lists had been swapped.
+#
+# SO EACH STEP NOW ACCEPTS THE PAGE IT IS NAMED FOR, and either title satisfies the first - a run
+# whose locale or theme changes the header still reaches it.
 step "the updates pane is done"
   repeat
     do
@@ -146,7 +163,7 @@ step "the updates pane is done"
       mode text
       rect [488, 285, 707, 355]
       rect_at [1920, 1080]
-      words [[installation, type]]
+      words [[updates, and, other, software]]
     max 60
 
 
@@ -164,7 +181,7 @@ step "the keyboard pane is done"
       mode text
       rect [488, 285, 707, 355]
       rect_at [1920, 1080]
-      words [[installation, type], [updates, and, other, software]]
+      words [[installation, type], [keyboard, layout]]
     max 80
 
 

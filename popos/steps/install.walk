@@ -41,9 +41,29 @@ step "wait for the live desktop"
     pause 5
 
 
-step "open the installer from the dock"
-  input 1211 1050
-  settle 20
+# THE INSTALLER IS NOT IN THE DOCK, AND THIS STEP USED TO CLICK THE SETTINGS ICON INSTEAD.
+#
+# MEASURED on run 45191149160's recording: the dock at t=880s holds EIGHT icons - Firefox, Files, the
+# app grid, Firefox again, a folder, a text editor, a terminal, an update icon and Settings. There is
+# no installer among them, and `input 1211 1050` lands on Settings, which opens a window the rest of
+# the walk cannot use. The screen then sat on the live desktop for the remaining eleven minutes.
+#
+# POP!_OS IS GNOME, SO THE INSTALLER IS IN THE APP GRID. `super` opens it, typing filters it, and
+# `ret` starts the first result - which is what a person does and what needs no coordinate that moves
+# when the dock's icon set changes.
+step "open the app grid"
+  input meta_l
+  settle 5
+
+
+step "type the installer's name, which filters the grid to it"
+  input text "install"
+  settle 5
+
+
+step "start the first result"
+  input ret
+  settle 25
 
 
 step "the installer window is up"

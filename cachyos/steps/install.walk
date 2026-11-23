@@ -47,21 +47,42 @@ step "let the desktop settle"
   settle 15
 
 
-step "open the installer"
-  input 960 743
-  settle 1
+# THE LIVE SESSION OPENS ON `CachyOS Hello`, NOT ON CALAMARES, AND A MODAL SITS ON TOP OF IT.
+#
+# MEASURED on run 45191149160's recording, t=400s:
+#
+#	CachyOS Hello                                   CachyOS rolling
+#	  Welcome to CachyOS!
+#	  ...  [ Calamares install type ]  <- a toast, not the installer
+#	   +-----------------------------------------------------+
+#	   | You are using an older version of CachyOS ISO,      |
+#	   | please consider using latest version for installs   |
+#	   |                    [ OK ]                           |
+#	   +-----------------------------------------------------+
+#	  INSTALLATION
+#	    Launch installer
+#
+# SO THE WALK WAITED FOR A PAGE THAT WAS BEHIND TWO THINGS IT NEVER TOUCHED. "the installer is on
+# screen" looked for `welcome installer` in the Calamares window's rect, and what is there is the
+# Hello application's own title - so the loop ran its 40 attempts and failed.
+#
+# THE THREE KEYS ARE THE THREE THINGS A PERSON DOES: dismiss the notice, close Hello, launch the
+# installer. `esc` closes the modal the way `ret` would, and does not activate anything if the modal
+# has already gone - which matters because this step runs on a screen that may be either state.
+step "dismiss the notice CachyOS Hello puts over its own window"
+  input esc
+  settle 3
 
 
-step "open the installer, second click"
-  input 960 743
-  settle 25
-
-
-step "the installer is on screen"
+step "open Calamares from the Hello window"
+  # THE BUTTON IS `Launch installer`, ONE CLICK PER ATTEMPT, AND THE QUESTION IS THE PAGE IT OPENS.
+  # `welcome` alone would also match the Hello window this step is trying to leave, so the loop reads
+  # the whole frame and asks for a word Calamares draws on its own Welcome page.
   repeat
     do
       item
-        settle 5
+        input 960 744
+        settle 6
       item "read the screen"
         read
           name cal
@@ -69,10 +90,10 @@ step "the installer is on screen"
       bind up
       source cal
       mode text
-      rect [792, 301, 1032, 774]
+      rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
       scale 1
-      words [[welcome, installer], [欢迎], [cachyos, 安装]]
+      words [[installer, welcome], [welcome, to, calamares], [choose, language]]
     max 40
 
 
