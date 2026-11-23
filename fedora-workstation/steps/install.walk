@@ -265,24 +265,30 @@ step "the editor is up"
     max 60
 
 
-step "the disk's menu"
-  input 1185 328
-  settle 4
-
-
-step "create the partition table"
-  input 1117 480
-  settle 6
-
-
-step "initialize it as GPT, which is the default"
-  input 474 381
-  settle 8
-
-
+# THIS FEDORA'S STORAGE PAGE ALREADY HAS A GPT TABLE AND ONE ROW OF FREE SPACE, SO THERE IS NO
+# "CREATE PARTITION TABLE" DIALOG TO ANSWER.
+#
+# MEASURED from run 1f0e1fa's own recording, frame at t=480:
+#
+#	Storage                                                  Requirements
+#	  ID                Type              Location  Size      Fedora Linux requires at least 8.30 GB of disk space.
+#	  vda_-_VirtIO Disk GPT partitions            137 GB     Partitions (advanced)
+#	  Free space                                  137 GB        /   /boot/efi   (required)
+#	                                                [ : ]        /boot           (recommended)
+#	[ <- Return to installation ]
+#
+# The disk is ALREADY GPT and its whole 137 GB is one `Free space` row - the qcow2 the stage creates has
+# a partition table, so the "initialize it as GPT" dialog this walk clicked through does not exist. The
+# three clicks that were meant to open that dialog landed on the `:` menu of the disk row and on empty
+# space instead, which is why the step after them read `Partitior Iyou are cor required:` - fragments of
+# the `Partitions (advanced)` panel - and never found Create/Format/Delete.
+#
+# SO THE WALK OPENS THE FREE-SPACE ROW'S OWN MENU DIRECTLY. Its `:` button is at x≈1183 and the row is
+# at y≈361; the disk's row above it has an identical button at y≈322, which is the button the old walk
+# pressed by mistake.
 step "the free space's menu"
-  input 1185 363
-  settle 4
+  input 1183 361
+  settle 5
 
 
 step "the free space menu is open"
@@ -297,10 +303,13 @@ step "the free space menu is open"
       bind up
       source the_free_space_menu_is_open
       mode text
-      rect [1000, 380, 1360, 460]
+      # THE MENU OPENS TO THE RIGHT OF THE BUTTON THAT WAS CLICKED, and its items are the ones a
+      # blivet-gui row menu carries. The region is wider than the 360x80 box the old interface used,
+      # because this build draws a taller menu with a `Help` row under the actions.
+      rect [1000, 340, 1500, 640]
       rect_at [1920, 1080]
       scale 1
-      words [[Create], [Format], [Delete]]
+      words [[Create], [Delete], [Format]]
     max 12
 
 
