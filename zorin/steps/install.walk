@@ -334,44 +334,57 @@ step "who are you"
 # SO IT IS ONE READ AND ONE GATED CLICK, NOT A LOOP. `when:` reads the frame and acts only if the
 # words are on it; when they are not, the step is skipped and the next one waits for the installer's
 # own end mark. A prompt that may or may not appear cannot be waited for - only answered.
-step "decline the language-pack download, if it is offered"
-  input 1280 800
-  settle 10
-  rect [600, 760, 1330, 850]
-  rect_at [1920, 1080]
-  scale 1
-  when [Skip]
-
-
-# THE INSTALLER'S OWN END MARK, WHICH IS THE SAME WITNESS mx USES. Calamares draws a page whose text
-# says "All done" / "the installation ... completed", and until one of those is on screen the disk is
-# not finished - no matter how long the machine has been left alone.
-step "the installer finishes"
+# THE LANGUAGE-PACK DOWNLOAD IS RETRIED INSIDE THE WAIT, BECAUSE A ONE-SHOT GATE MISSED IT.
+#
+# MEASURED on run 45231616730 (the leg that failed at 31/33): the completion check ran its whole 180
+# rounds reading
+#
+#	Zorin OS 18 ... Downloading ...
+#
+# - so the installer was STILL downloading language packs when the wait began, and the gated click
+# above had already been skipped. A `when: [Skip]` that is evaluated once, ten seconds after the
+# account page, is a gate that has to guess when the panel appears; run 45214582817 is the one where
+# it appeared within those ten seconds, and this run is the one where it did not.
+#
+# SO THE CLICK MOVES INTO THE LOOP. Every round of the wait reads the screen; if `Skip` is on it, it is
+# clicked; either way the round then asks whether the install has finished. A panel that appears late
+# is answered late, and a panel that never appears costs one OCR read per round - which the loop was
+# doing anyway.
+#
+# THE REGION IS THE WHOLE WINDOW. The button's position was measured for the panel in an earlier
+# recording, but the panel's vertical position moves with the progress text above it, so a fixed
+# 90-pixel band is a guess about a layout that shifts.
+step "the installer finishes, declining the language-pack download if it appears"
   repeat
     do
       item "read the screen"
+        read
+          name round
+      item "decline the download, if this round shows the panel"
+        input 1280 800
+        settle 8
+        rect [583, 600, 1335, 870]
+        rect_at [1920, 1080]
+        scale 1
+        when [Skip]
+      item "read again, because the click may have changed the page"
         read
           name screen
     until
       bind done
       source screen
       mode text
-      # THE REGION WAS mx's, AND mx's INSTALLER IS NOT AT THE SAME PLACE.
-      #
-      # MEASURED from this repository's own recording of run 45214582817 (the zorin install that
-      # reached the language-pack panel): the zorin installer window occupies roughly x 583..1335,
-      # y 285..860 on a 1920x1080 frame. The rect above was copied from mx's walk, where the window
-      # sits at x 314..594, y 241..331 - a DIFFERENT INSTALLER BUILD IN A DIFFERENT PLACE, and this
-      # step was therefore reading a region of empty wallpaper for its whole thirty-minute budget.
-      #
-      # The whole window is used rather than a caption-sized box, because the completion page's text
-      # position is not something this repository has measured for zorin - only mx's.
       rect [583, 285, 1335, 860]
       rect_at [1920, 1080]
       scale 1
       words [[congratulations], [completed, the, installation], [All, done]]
     max 180
     pause 10
+
+
+# THE INSTALLER'S OWN END MARK, WHICH IS THE SAME WITNESS mx USES. Calamares draws a page whose text
+# says "All done" / "the installation ... completed", and until one of those is on screen the disk is
+# not finished - no matter how long the machine has been left alone.
 
 
 step "stop the machine"
