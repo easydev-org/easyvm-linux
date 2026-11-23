@@ -68,7 +68,7 @@ step "wait for the installer to put itself up"
       item
         settle 5
       item
-        key ret
+        input ret
       item
         settle 5
       item

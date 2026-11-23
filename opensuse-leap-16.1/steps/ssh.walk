@@ -150,21 +150,21 @@ step "log in on the console, retrying until the shell answers"
   repeat
     do
       item
-        key ret
+        input ret
         settle 3
       item
         settle 5
         input text "{{ user }}"
         type_gap 0.25
       item
-        key ret
+        input ret
         settle 8
       item
         settle 5
         input text "{{ password }}"
         type_gap 0.25
       item
-        key ret
+        input ret
         settle 14
     until
       bind logged_in

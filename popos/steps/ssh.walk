@@ -176,17 +176,17 @@ step "the terminal is open, or the dock icon is clicked"
   repeat
     do
       item
-        click [1087, 1040]
+        input 1087 1040
         settle 4
       item
-        key meta_l
+        input meta_l
         settle 3
       item
         settle 3
         input text terminal
         type_gap 0.12
       item
-        key ret
+        input ret
         settle 8
       item
         settle 2

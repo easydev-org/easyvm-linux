@@ -487,10 +487,10 @@ step "dismiss the welcome dialog, which takes the keyboard"
   repeat
     do
       item
-        click [852, 756]
+        input 852 756
         settle 4
       item
-        key esc
+        input esc
         settle 2
       item
         settle 2
