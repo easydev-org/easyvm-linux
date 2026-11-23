@@ -498,6 +498,27 @@ step "drive encryption - don't encrypt"
 # installer underneath, and ubuntu's leg has passed for weeks with these words: "installed and ready
 # to use" / "restart to complete the installation" / "restart now". The budget is forty-five minutes,
 # which is generous for an image ubuntu copies in about eight.
+# THE WORDS AND THE REGION WERE ubuntu's, AND THIS INSTALLER PUTS ITS END SOMEWHERE ELSE.
+#
+# MEASURED from run 45237227028's own recording, whose frame at t=3300 shows THE INSTALLATION ALREADY
+# FINISHED:
+#
+#	Install Pop!_OS 24.04 LTS
+#	        [ rocket icon ]
+#	        Continue Setting Up
+#	                       [ ] [ Restart Device ] [ Shut Down ]
+#
+# The window occupies x 483..1437, y 150..855, and the completion line sits at y≈745 - OUTSIDE the
+# rect [690, 630, 1270, 730] this step was reading, which is why the leg failed with
+#
+#	none of "installed and ready to use" ... in "——E_—O"
+#
+# (the OCR of the window's edge). popOS's installer is not ubuntu's: it is a GTK app whose completion
+# page offers `Continue Setting Up` / `Restart Device`, and none of ubuntu's three phrasings appear.
+#
+# SO THE REGION IS THE WHOLE WINDOW AND THE WORDS ARE THIS INSTALLER'S OWN. `Restart Device` is the
+# button, `Continue Setting Up` the caption - either is proof the copy is done, and both are on the
+# page that only appears when it is.
 step "the installer finishes"
   repeat
     do
@@ -513,9 +534,10 @@ step "the installer finishes"
       bind done
       source screen
       mode text
-      rect [690, 630, 1270, 730]
+      rect [483, 150, 1437, 855]
       rect_at [1920, 1080]
-      words [[installed, and, ready, to, use], [restart, to, complete, the, installation], [restart, now]]
+      scale 1
+      words [[Continue, Setting, Up], [Restart, Device]]
     max 135
 
 
