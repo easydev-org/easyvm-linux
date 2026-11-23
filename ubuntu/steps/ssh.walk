@@ -77,16 +77,15 @@ step "walk the first-login pages to the end"
         input 1464 194
       item
         settle 4
-      item
-        settle 2
       item "read the screen"
         read
           name page
     until
       bind done
       source page
-      mode matches
-      pattern .
+      mode says_without
+      words [ubuntu]
+      without [continue, next, skip, pro]
       rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
       scale 1
