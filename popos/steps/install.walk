@@ -41,29 +41,63 @@ step "wait for the live desktop"
     pause 5
 
 
-# THE INSTALLER IS NOT IN THE DOCK, AND THIS STEP USED TO CLICK THE SETTINGS ICON INSTEAD.
+# THE INSTALLER IS NOT IN THE DOCK, AND THE APP GRID SEARCH NEEDS MORE THAN ONE KEYPRESS TO USE.
 #
-# MEASURED on run 45191149160's recording: the dock at t=880s holds EIGHT icons - Firefox, Files, the
-# app grid, Firefox again, a folder, a text editor, a terminal, an update icon and Settings. There is
-# no installer among them, and `input 1211 1050` lands on Settings, which opens a window the rest of
-# the walk cannot use. The screen then sat on the live desktop for the remaining eleven minutes.
+# MEASURED on run 45204783862's recording, t=160s: the app grid's search field holds
 #
-# POP!_OS IS GNOME, SO THE INSTALLER IS IN THE APP GRID. `super` opens it, typing filters it, and
-# `ret` starts the first result - which is what a person does and what needs no coordinate that moves
-# when the dock's icon set changes.
-step "open the app grid"
+#   stall
+#
+# - the first two letters of `install` never arrived, because `meta_l` had only just opened the grid
+# and the field did not have the keyboard yet. The filtered list was therefore COSMIC App Store,
+# Restart, System Monitor, ... and `ret` started the FIRST of them, the App Store, whose own window
+# then reads "Editor's Choice ... Slack, Meld, Steam". That is the text the failing step quoted, and
+# it is why the run never saw "Clean install".
+#
+# SO THE QUERY IS TYPED INTO A GRID THAT HAS SETTLED, IT NAMES ONE PACKAGE AND NO OTHER, AND THE
+# RESULT IS READ BACK BEFORE `ret` IS PRESSED. `pop!_os` matches "Install Pop!_OS" alone - `install`
+# matches the App Store's own suggestions too - and the loop reopens the grid if the letters were lost
+# again, which is the only thing that can go wrong here.
+step "open the app grid, and let it take the keyboard"
   input meta_l
+  settle 6
+
+
+step "search for the installer alone"
+  type_gap 0.2
+  input text "pop!_os"
   settle 5
 
 
-step "type the installer's name, which filters the grid to it"
-  input text "install"
-  settle 5
+step "the search found the installer"
+  repeat
+    do
+      item "close whatever the grid started or left open"
+        input esc
+        settle 2
+      item
+        input meta_l
+        settle 6
+      item "type the query again, now that the field has the keyboard"
+        input text "pop!_os"
+      item
+        settle 5
+      item "read the filtered list"
+        read
+          name results
+    until
+      bind found
+      source results
+      mode text
+      rect [700, 130, 1240, 550]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Install, Pop!_OS]]
+    max 6
 
 
-step "start the first result"
+step "start the one result"
   input ret
-  settle 25
+  settle 30
 
 
 step "the installer window is up"

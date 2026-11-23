@@ -154,9 +154,46 @@ step "the full name field - the field took it"
     max 8
   settle 2
 
+# THE CLICK WAS ON THE WRONG CHECKBOX, ONE ROW TOO LOW.
+#
+# MEASURED on run 45204798070's recording, t=200s: the page reads
+#
+#   Choose a password to keep your account safe.
+#   [.....]  [.....]  (X) Password is too short
+#   [x] Require strong passwords.
+#   [x] Use the same password for the administrator account.
+#
+# - both boxes are five dots, so they DO match, and the error is only "too short". `admin` is five
+# characters, and the policy that refuses it is still ON, because the click at 645 537 landed on the
+# SECOND checkbox ("Use the same password...") instead of the first. That is why the run then sat on
+# `next to the partitions page`: Next is disabled while the password is refused.
+#
+# THE TWO BOXES ARE 28 PIXELS APART AT 1080p, measured from the same frame: "Require strong passwords"
+# is centred on y 512 and "Use the same password for the administrator account" on y 540, both with
+# their tick at x 634. The first is the one to clear.
 step "users - allow a short password"
-  input 645 537
+  input 634 512
   settle 3
+
+
+step "the strong-password policy is off"
+  repeat
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name policy
+    until
+      bind off
+      source policy
+      mode text
+      rect [1080, 465, 1350, 500]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Password, is, too, short]]
+      must false
+    max 6
 
 
 # THE FOUR POINTS ARE THE CENTRES OF THE FOUR FIELDS, MEASURED FROM THE RECORDING.
