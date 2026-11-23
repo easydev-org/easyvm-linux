@@ -23,11 +23,11 @@ on:
     inputs:
       disks_repository:
         description: "the ghcr repository that holds the disks"
-        default: "easydev-org/easyvm-linux"
+        default: "linux-ubuntu-ssh"
       from_tag:
         description: >-
-          the PUBLISHED disk this stage continues from (default ${{ inputs.from_tag }})
-        default: "${{ inputs.from_tag }}"
+          the PUBLISHED disk this stage continues from (default linux-ubuntu-ssh)
+        default: "linux-ubuntu"
 
 concurrency:
   group: ubuntu-vm-configure

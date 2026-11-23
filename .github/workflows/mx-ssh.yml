@@ -30,8 +30,8 @@ on:
         default: "easydev-org/easyvm-linux"
       from_tag:
         description: >-
-          the PUBLISHED disk this stage continues from (default ${{ inputs.from_tag }})
-        default: "${{ inputs.from_tag }}"
+          the PUBLISHED disk this stage continues from (default linux-mx)
+        default: "linux-mx"
 
 concurrency:
   group: mx-ssh
