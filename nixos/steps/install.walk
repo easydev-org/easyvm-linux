@@ -159,27 +159,36 @@ step "users - allow a short password"
   settle 3
 
 
+# THE FOUR POINTS ARE THE CENTRES OF THE FOUR FIELDS, MEASURED FROM THE RECORDING.
+#
+# MEASURED on run 45191149160's recording, t=110s, magnified 2x: the user's `Password` box occupies
+# x 622..822, y 470..489 and `Repeat Password` x 832..1032 at the same y; the administrator's two are
+# the same pair at y 587..607. The values below used to be y=495 and y=609, which is the BOTTOM EDGE of
+# each box - a click there is a click on the border, and the field keeps its placeholder.
+#
+# That is why the run reached `next to the partitions page` with `Password is too short` beside both
+# pairs: nothing was ever typed into them.
 step "users - password"
   input text "{{ password }}"
-    at 741 495
+    at 722 480
   settle 2
 
 
 step "users - repeat password"
   input text "{{ password }}"
-    at 959 495
+    at 932 480
   settle 2
 
 
 step "users - administrator password"
   input text "{{ password }}"
-    at 741 609
+    at 722 597
   settle 2
 
 
 step "users - administrator repeat password"
   input text "{{ password }}"
-    at 959 609
+    at 932 597
   settle 3
 
 
