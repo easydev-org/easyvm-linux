@@ -87,7 +87,7 @@ jobs:
             "file": "nixos/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-nixos-graphical:nixos.iso"
+              "iso-nixos-graphical:nixos.iso.tar"
             ],
             "out": "linux-nixos.qcow2",
             "publish": "linux-nixos",

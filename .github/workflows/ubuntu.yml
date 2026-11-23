@@ -71,7 +71,7 @@ jobs:
             "name": "linux-ubuntu-install",
             "file": "ubuntu/steps/install.walk",
             "pull": "",
-            "assets": ["iso-ubuntu-desktop:ubuntu.iso"],
+            "assets": ["iso-ubuntu-desktop:ubuntu.iso.tar"],
             "out": "linux-ubuntu.qcow2",
             "publish": "linux-ubuntu",
             "timeout": 90

@@ -87,7 +87,7 @@ jobs:
             "file": "zorin/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-zorin-core:zorin.iso"
+              "iso-zorin-core:zorin.iso.tar"
             ],
             "out": "linux-zorin.qcow2",
             "publish": "linux-zorin",

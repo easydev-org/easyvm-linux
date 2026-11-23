@@ -87,7 +87,7 @@ jobs:
             "file": "mint/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-mint-cinnamon:mint.iso"
+              "iso-mint-cinnamon:mint.iso.tar"
             ],
             "out": "linux-mint.qcow2",
             "publish": "linux-mint",

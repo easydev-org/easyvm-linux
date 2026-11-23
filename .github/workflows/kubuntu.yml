@@ -84,7 +84,7 @@ jobs:
             "name": "linux-kubuntu-install",
             "file": "kubuntu/steps/install.walk",
             "pull": "",
-            "assets": ["iso-kubuntu-desktop:kubuntu.iso"],
+            "assets": ["iso-kubuntu-desktop:kubuntu.iso.tar"],
             "out": "linux-kubuntu.qcow2",
             "publish": "linux-kubuntu",
             "timeout": 90

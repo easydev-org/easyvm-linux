@@ -87,7 +87,7 @@ jobs:
             "file": "fedora-workstation/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-fedora-workstation:fedora-workstation.iso"
+              "iso-fedora-workstation:fedora-workstation.iso.tar"
             ],
             "out": "linux-fedora-workstation.qcow2",
             "publish": "linux-fedora-workstation",

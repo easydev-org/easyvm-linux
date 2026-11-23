@@ -87,7 +87,7 @@ jobs:
             "file": "endeavour/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-endeavouros:endeavour.iso"
+              "iso-endeavouros:endeavour.iso.tar"
             ],
             "out": "linux-endeavour.qcow2",
             "publish": "linux-endeavour",

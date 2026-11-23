@@ -80,7 +80,7 @@ jobs:
             "name": "linux-cachyos-install",
             "file": "cachyos/steps/install.walk",
             "pull": "",
-            "assets": ["iso-cachyos-desktop:cachyos.iso"],
+            "assets": ["iso-cachyos-desktop:cachyos.iso.tar"],
             "out": "linux-cachyos.qcow2",
             "publish": "linux-cachyos",
             "timeout": 120

@@ -87,7 +87,7 @@ jobs:
             "file": "popos/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-popos-desktop:popos.iso"
+              "iso-popos-desktop:popos.iso.tar"
             ],
             "out": "linux-popos.qcow2",
             "publish": "linux-popos",

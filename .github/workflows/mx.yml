@@ -87,7 +87,7 @@ jobs:
             "file": "mx/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-mx-xfce:mx.iso"
+              "iso-mx-xfce:mx.iso.tar"
             ],
             "out": "linux-mx.qcow2",
             "publish": "linux-mx",

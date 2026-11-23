@@ -87,7 +87,7 @@ jobs:
             "file": "manjaro/steps/install.walk",
             "pull": "",
             "assets": [
-              "iso-manjaro-kde:manjaro.iso"
+              "iso-manjaro-kde:manjaro.iso.tar"
             ],
             "out": "linux-manjaro.qcow2",
             "publish": "linux-manjaro",
