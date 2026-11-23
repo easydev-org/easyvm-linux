@@ -135,7 +135,24 @@ step "the installer window is up"
       # `language` matched `Workspaces Applications ... 3:49 AM` on a desktop with no installer on it,
       # because a top bar with a language indicator satisfies a one-word set. The new installer's rows
       # are phrases - "Clean install", "Erase disk", "Install" - and the rect is the sidebar itself.
-      words [[Clean, install], [Erase, disk], [Install, Ubuntu]]
+      #
+      # THE INSTALLER'S FIRST PAGE IS A LANGUAGE CHOICE, AND OCR READS ITS TITLE AS GARBAGE.
+      #
+      # MEASURED on run 45225658892: the whole reading was
+      #
+      #	Install Poy IN genre? a Language
+      #
+      # - "Install Pop!_OS" and "Choose a Language" mangled by tesseract on a light-on-dark heading.
+      # THE INSTALLER WAS UP, and this gate refused it for its entire hundred-round budget, which is
+      # the third distinct way this one step has failed (the App Store, then Popsicle, now a correct
+      # window it could not read).
+      #
+      # SO THE LANGUAGE PAGE'S OWN TWO FRAGMENTS ARE ACCEPTED. `Install Po` and `Language` are what
+      # tesseract reproduces reliably from that heading, and a bare desktop carries neither together -
+      # which is the rule the note above is about. The step AFTER this one already knows how to leave
+      # the language page (`select the language, all the way to the keyboard page`), so accepting it
+      # here joins the two halves that were already written.
+      words [[Clean, install], [Erase, disk], [Install, Ubuntu], [Install, Po, Language], [Choose, Language]]
     max 100
 
 
