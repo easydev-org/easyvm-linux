@@ -44,7 +44,6 @@ permissions:
 
 jobs:
   vm:
-    needs: [ssh]
     uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.3-dev
     secrets: inherit
     with:
