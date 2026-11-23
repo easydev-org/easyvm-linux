@@ -14,7 +14,6 @@ Walkthroughs, reference images and CI for **Linux** guests, driven by
 | `manjaro/` | Manjaro |
 | `mx/` | MX Linux |
 | `nixos/` | NixOS |
-| `opensuse-leap-16.1/` | openSUSE Leap 16.1 (Agama) |
 | `popos/` | Pop!\_OS |
 | `zorin/` | Zorin OS |
 | `cachyos/` | CachyOS |
