@@ -137,7 +137,11 @@ step "the installer window is up"
       rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
       scale 1
-      words [[Welcome], [Keyboard], [Multimedia]]
+      # TWO WORDS THAT ONLY THE INSTALLER DRAWS, IN THE SAME FRAME: the window's own title says
+      # "Install Linux Mint" and the sidebar's first row says "Welcome". `Welcome`, `Keyboard` and
+      # `Multimedia` are each one word, and MEASURED on popos a lone `language` matched the desktop's
+      # own top bar - so a one-word set can pass over a bare desktop with no installer on it.
+      words [[Welcome, Mint], [Keyboard, Mint], [Multimedia, Mint]]
     max 30
 
 

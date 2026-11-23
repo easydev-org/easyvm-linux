@@ -482,7 +482,13 @@ step "prove the unit is up before waiting on a port"
 
 
 step "sshd authenticates against shadow, because this image ships no PAM service file"
-  run "sudo sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf \"UsePAM no\\nPasswordAuthentication yes\\nKbdInteractiveAuthentication no\\n\" > /etc/ssh/sshd_config.d/99-vm.conf; sshd -T 2>&1 | grep -iE \"^(usepam|passwordauthentication|kbdinteractive)\"'"
+  # THE DROP-IN IS NOT ENOUGH ON ITS OWN. A distro whose /etc/ssh/sshd_config ships no
+  # `Include /etc/ssh/sshd_config.d/*.conf` never opens 99-vm.conf - MEASURED on endeavour-ssh, where
+  # the drop-in was written and correct and the daemon still authenticated exactly as before. So the
+  # same three settings are written into the MAIN file, by REPLACING the commented lines the package
+  # ships rather than appending beside them: `^#?\s*Key` matches both forms, and sshd reads the FIRST
+  # value it sees.
+  run "sudo sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf \"UsePAM no\\nPasswordAuthentication yes\\nKbdInteractiveAuthentication no\\n\" > /etc/ssh/sshd_config.d/99-vm.conf; for kv in UsePAM:no PasswordAuthentication:yes KbdInteractiveAuthentication:no; do k=${kv%%:*}; v=${kv#*:}; sed -i \"s/^#\\?\\s*${k}.*/${k} ${v}/\" /etc/ssh/sshd_config; grep -q \"^${k} ${v}\$\" /etc/ssh/sshd_config || printf \"${k} ${v}\\n\" >> /etc/ssh/sshd_config; done; sshd -T 2>&1 | grep -iE \"^(usepam|passwordauthentication|kbdinteractive)\"'"
   settle 8
   type_gap 0.09
 

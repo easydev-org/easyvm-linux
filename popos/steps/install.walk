@@ -67,7 +67,11 @@ step "the installer window is up"
       rect [698, 153, 945, 755]
       rect_at [1920, 1080]
       scale 1
-      words [[Install], [Language], [Clean], [Erase], [Account]]
+      # THE SIDEBAR'S OWN TWO-WORD ROWS, not the single words every desktop has. MEASURED: a lone
+      # `language` matched `Workspaces Applications ... 3:49 AM` on a desktop with no installer on it,
+      # because a top bar with a language indicator satisfies a one-word set. The new installer's rows
+      # are phrases - "Clean install", "Erase disk", "Install" - and the rect is the sidebar itself.
+      words [[Clean, install], [Erase, disk], [Install, Ubuntu]]
     max 100
 
 
