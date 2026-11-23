@@ -213,26 +213,26 @@ step "the keyboard layout, which is US"
   settle 3
 
 
-step "the layout types latin letters - click the field"
-  input 1190 757
-
-
-step "the layout types latin letters - select what is there"
-  input ctrl+a
-  settle 1
-
-
-step "the layout types latin letters - delete the selection"
-  input backspace
-  settle 1
-
-
-step "the layout types latin letters - type the value"
-  input text 
-  type_gap 0.12
-  settle 1
-
-
+# FOUR STEPS HERE TYPED INTO THE LAYOUT'S TEST FIELD AND ASSERTED NOTHING, AND ONE OF THEM COULD NOT
+# RUN AT ALL.
+#
+# MEASURED on run 45232755367, which got past the language page and died at step 16/44:
+#
+#	the layout types latin letters - type the value: `press:` needs a coordinate, `key:`, `text:`,
+#	button:` or `colour:`
+#
+# The line was `input text ` with NOTHING AFTER IT - an action whose whole content is the value it
+# carries, carrying none. It has probably never executed: every earlier popOS run died before the
+# keyboard page, so this is the first time the walk got here.
+#
+# THE INTENT WAS A SANITY CHECK - "the layout types latin letters" - and there is no check after it:
+# no `read`, no `words`, nothing that would notice a wrong answer. Four keystrokes with no assertion
+# are four chances to type into the wrong field, and the field they targeted (1190,757) is inside the
+# layout TEST BOX of the new installer, which a plain `ret` on Next does not need.
+#
+# SO THEY ARE DELETED RATHER THAN INVENTED A VALUE FOR. `the layout types latin letters` would have to
+# be rewritten as a read-and-assert step to mean anything, and that is a different piece of work from
+# making this install finish.
 step "take the keyboard layout"
   input 1367 810
   settle 6
@@ -330,7 +330,7 @@ step "type the display name - delete the selection"
 
 
 step "type the display name - type the value"
-  input text 
+  input text "{{ user }}"
   type_gap 0.09
   settle 2
 
@@ -415,7 +415,7 @@ step "type the password - delete the selection"
 
 
 step "type the password - type the value"
-  input text 
+  input text "{{ password }}"
   type_gap 0.09
   settle 2
 
@@ -435,7 +435,7 @@ step "confirm the password - delete the selection"
 
 
 step "confirm the password - type the value"
-  input text 
+  input text "{{ password }}"
   type_gap 0.09
   settle 2
 # AND THE TWO FIELDS ARE READ BACK, BECAUSE A FIELD THAT DID NOT TAKE IS AN ACCOUNT NOBODY CAN USE.
