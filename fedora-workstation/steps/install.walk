@@ -81,23 +81,22 @@ step "press Return on the selected live user"
   settle 25
 
 
-step "the prompt is gone, because a prompt answered is a prompt closed"
-  repeat
-    do
-      item "read the screen"
-        read
-          name after
-    until
-      bind gone
-      source after
-      mode text
-      rect [700, 400, 1250, 600]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Live, System, User]]
-      must false
-    max 60
-    pause 5
+# THE "PROMPT IS GONE" CONFIRMATION IS DELETED, BECAUSE IT FAILED ON A BLANK SCREEN - AND THE DESKTOP
+# CHECK ALREADY CARRIES THE SAME CLAIM.
+#
+# MEASURED on run 42e065b, which reached step 6 and failed there with
+#
+#	the prompt is gone ...: see: 0 word(s):
+#
+# A login that WORKS turns the screen BLACK for a second while GNOME starts the session, and a
+# `words: ... must false` check over a region that reads ZERO words is not the same question as "the
+# prompt is not there" - it is "I could not read the region", and this engine treats an unreadable
+# region as an error rather than as an absence.
+#
+# NOTHING IS LOST BY DROPPING IT. The step that follows is `wait for the live desktop`, which compares
+# the bottom of the frame against reference/desktop.png - a screenshot of THIS live session's own
+# desktop. A desktop only exists if the login succeeded, so the desktop check is a strictly stronger
+# witness than "the login prompt is absent", and it is one this repository has an actual picture of.
 
 step "wait for the live desktop"
   repeat
