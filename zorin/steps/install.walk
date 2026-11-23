@@ -377,7 +377,21 @@ step "the installer finishes, declining the language-pack download if it appears
       rect [583, 285, 1335, 860]
       rect_at [1920, 1080]
       scale 1
-      words [[congratulations], [completed, the, installation], [All, done]]
+      # THE PAGE SAYS "Installation Complete", AND NONE OF THE THREE PHRASES BELOW APPEARED ON IT.
+      #
+      # MEASURED on the fourth run at this step: the reading was
+      #
+      #	Pe Ne Rtas Installation Complete = x oe instalation Is complete. You ...
+      #
+      # i.e. "Installation Complete" over "Installation is complete. You can now..." - the install had
+      # FINISHED, and the gate was looking for `congratulations`, `completed the installation` and
+      # `All done`, none of which this installer says. Four legs died on a page whose title was right
+      # there.
+      #
+      # `Installation` + `Complete` TOGETHER IS THE WITNESS, and it is safe: no other page in this
+      # wizard carries both words. `is complete` catches the body line when the title is mangled more
+      # badly than above.
+      words [[Installation, Complete], [instalation, Is, complete], [congratulations], [All, done]]
     max 180
     pause 10
 
