@@ -188,12 +188,30 @@ step "the strong-password policy is off"
       bind off
       source policy
       mode text
-      rect [1080, 465, 1350, 500]
+      # THE REGION WAS TOO NARROW, AND A TRUNCATED READING IS READ AS A DIFFERENT SENTENCE.
+      #
+      # MEASURED on run 45214555559: the check failed with
+      #
+      #	none of "Password is too short" in "ssword is t"
+      #
+      # - the FIRST LETTER AND THE LAST WORD are missing, so the phrase the check is looking for was
+      # never there to be found or not found. The crop started at x=1080 while the hint begins to the
+      # LEFT of that, and ended at 1350 while "short" ends past it.
+      #
+      # THE WIDER BOX AND THE LOWER SCALE ARE ONE CHANGE: the hint sits under a password field whose
+      # left edge is x=722, so the region starts at 700 and takes everything to the right window edge.
+      # `scale 1` because the point is to read the WHOLE sentence, and enlarging a crop that is the
+      # right size only makes tesseract slower without making it more accurate.
+      rect [700, 455, 1500, 510]
       rect_at [1920, 1080]
-      scale 2
+      scale 1
       words [[Password, is, too, short]]
       must false
-    max 6
+    # SIX ROUNDS IS TOO FEW FOR A FIELD THAT IS TYPED AND THEN VALIDATED. The hint appears once the
+    # field loses focus, which is when the NEXT click happens - so the first rounds can legitimately
+    # see nothing yet, and a budget that runs out before the last field is validated reports "still
+    # there" for a form that is correct.
+    max 12
 
 
 # THE FOUR POINTS ARE THE CENTRES OF THE FOUR FIELDS, MEASURED FROM THE RECORDING.

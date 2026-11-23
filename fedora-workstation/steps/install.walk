@@ -25,6 +25,28 @@ step "boot the installer"
     machine "q35,accel=kvm,vmport=off"
     args [["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=fedora-workstation.iso,media=cdrom,readonly=on,if=none,id=media0"], ["-device", "ide-cd,drive=media0,bootindex=0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=1"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
     timeout 1800
+# THE LIVE MEDIUM STOPS AT A LOGIN PROMPT, AND THIS WALK USED TO WAIT FOR A DESKTOP THAT NOBODY HAD
+# ASKED FOR.
+#
+# MEASURED on run 45193503515, whose recording is 4806 frames and whose desktop check answered
+# `0.0000 similar` on every one of them. Frame 180 shows
+#
+#	Nov 23  2:27 PM                                   [Live System User]  <- the selected tile
+#	                                                        Not listed?
+#	                              fedora
+#
+# i.e. GDM's user chooser with the live session's account already highlighted. Nothing was wrong with
+# the medium, the boot or the check's region: the check was waiting for a wallpaper that this image
+# never draws until somebody signs in.
+#
+# SO THE PROMPT IS ANSWERED FIRST, AND THE ANSWER IS ONE `ret` - the tile is preselected, the live
+# account has no password, and pressing Return is what a person does here. The step is gated on the
+# prompt's own words, so an image that boots straight to a desktop is not typed into at all.
+step "sign in to the live session, if it is asking"
+  input ret
+  settle 20
+  when [Live, System, User]
+
 step "wait for the live desktop"
   repeat
     do

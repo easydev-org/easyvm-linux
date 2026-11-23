@@ -41,22 +41,31 @@ step "wait for the live desktop"
     pause 5
 
 
-# THE INSTALLER IS NOT IN THE DOCK, AND THE APP GRID SEARCH NEEDS MORE THAN ONE KEYPRESS TO USE.
+# THE INSTALLER IS NOT IN THE DOCK, AND TWO QUERIES HAVE ALREADY STARTED THE WRONG PROGRAM.
 #
-# MEASURED on run 45204783862's recording, t=160s: the app grid's search field holds
+# FIRST FAILURE, run 45204783862 t=160s: the grid's search field held `stall` - the first two letters
+# of `install` never arrived because `meta_l` had only just opened it - so `ret` started whatever was
+# first in an UNFILTERED list, and the window that came up read "Editor's Choice ... Slack, Meld".
 #
-#   stall
+# SECOND FAILURE, run 45214546706 t=900s: the query was `pop!_os` and the program that started was
+# POPSICLE, whose window reads
 #
-# - the first two letters of `install` never arrived, because `meta_l` had only just opened the grid
-# and the field did not have the keyboard yet. The filtered list was therefore COSMIC App Store,
-# Restart, System Monitor, ... and `ret` started the FIRST of them, the App Store, whose own window
-# then reads "Editor's Choice ... Slack, Meld, Steam". That is the text the failing step quoted, and
-# it is why the run never saw "Clean install".
+#	Popsicle
+#	Choose an Image
+#	Select the .iso or .img that you want to flash. You can also plug your USB drives in now.
+#	Choose Image / No image selected / Hash: None
 #
-# SO THE QUERY IS TYPED INTO A GRID THAT HAS SETTLED, IT NAMES ONE PACKAGE AND NO OTHER, AND THE
-# RESULT IS READ BACK BEFORE `ret` IS PRESSED. `pop!_os` matches "Install Pop!_OS" alone - `install`
-# matches the App Store's own suggestions too - and the loop reopens the grid if the letters were lost
-# again, which is the only thing that can go wrong here.
+# Popsicle is popOS's own USB WRITER, and its name sorts before "Install Pop!_OS" in the same results
+# list - so a query that was believed to "match the installer alone" matched two programs, and `ret`
+# took the first. The recording is unambiguous and this comment is what that picture says.
+#
+# SO THE QUERY IS THE INSTALLER'S FULL NAME, NOT A SUBSET OF IT, AND THE RESULT IS READ BACK BEFORE
+# `ret` IS PRESSED. "Install Pop!_OS" is the launcher's own title and cannot name Popsicle; the loop
+# reopens the grid and retypes if the letters were lost, which is the only other thing that goes wrong
+# here.
+#
+# THE READ-BACK REJECTS POPSICLE'S OWN WORDS TOO. A gate that only looked for "Install Pop!_OS" would
+# pass on a list holding BOTH - and that list is what produced this failure.
 step "open the app grid, and let it take the keyboard"
   input meta_l
   settle 6
@@ -64,7 +73,7 @@ step "open the app grid, and let it take the keyboard"
 
 step "search for the installer alone"
   type_gap 0.2
-  input text "pop!_os"
+  input text "Install Pop!_OS"
   settle 5
 
 
@@ -78,7 +87,7 @@ step "the search found the installer"
         input meta_l
         settle 6
       item "type the query again, now that the field has the keyboard"
-        input text "pop!_os"
+        input text "Install Pop!_OS"
       item
         settle 5
       item "read the filtered list"
@@ -88,10 +97,14 @@ step "the search found the installer"
       bind found
       source results
       mode text
+      # THE REGION IS THE RESULTS LIST, AND THE NEGATIVE HALF IS THE FIX. `words:` requires every word
+      # of its set on screen; `without:` is the other polarity of the same question, and it is what
+      # rejects a list that still offers Popsicle above the installer.
       rect [700, 130, 1240, 550]
       rect_at [1920, 1080]
       scale 1
       words [[Install, Pop!_OS]]
+      without [Popsicle, flash]
     max 6
 
 
