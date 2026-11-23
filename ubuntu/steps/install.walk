@@ -75,6 +75,11 @@ step "wait for the installer window"
         input 420 300
       item
         settle 5
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -112,7 +117,12 @@ step "welcome / language"
 
 step "wait for the accessibility page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -130,7 +140,12 @@ step "accessibility"
 
 step "wait for the keyboard layout page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -148,7 +163,12 @@ step "keyboard layout"
 
 step "wait for the internet connection page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -188,7 +208,12 @@ step "leave the update page by the same Next every other page uses"
 
 step "wait for the what do you want to do with ubuntu page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -206,7 +231,12 @@ step "what do you want to do with ubuntu"
 
 step "wait for the type of installation page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -224,7 +254,12 @@ step "type of installation"
 
 step "wait for the applications page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -242,7 +277,12 @@ step "applications"
 
 step "wait for the optimise your computer page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -260,7 +300,12 @@ step "optimise your computer"
 
 step "wait for the disk setup page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -278,7 +323,12 @@ step "disk setup"
 
 step "wait for the encryption page, because a click that assumes the page before it is a click that can miss"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -296,7 +346,12 @@ step "encryption"
 
 step "wait for the account page before typing into it"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -391,7 +446,12 @@ step "create your account"
 
 step "wait for the time zone page"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name page
     until
       bind there
       source page
@@ -423,6 +483,11 @@ step "the installer finishes"
       item
         input 420 300
         settle 20
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen

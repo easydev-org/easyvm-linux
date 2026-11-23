@@ -58,6 +58,11 @@ step "calamares is up"
       item
         input 420 300
         settle 10
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -85,6 +90,11 @@ step "next through the pages, until the users page is up"
       item
         input 1330 828
         settle 8
+      item
+        settle 2
+      item "read the screen"
+        read
+          name at_users
     until
       bind here
       source at_users
@@ -118,6 +128,11 @@ step "the full name field - the field took it"
   repeat
     do
       item
+      item
+        settle 2
+      item "read the screen"
+        read
+          name name_field
     until
       bind took
       source name_field
@@ -164,6 +179,11 @@ step "next to the partitions page"
       item
         input 1330 828
         settle 6
+      item
+        settle 2
+      item "read the screen"
+        read
+          name at_partitions
     until
       bind here
       source at_partitions
@@ -186,6 +206,11 @@ step "partitions -> summary"
       item
         input 1330 828
         settle 6
+      item
+        settle 2
+      item "read the screen"
+        read
+          name at_summary
     until
       bind here
       source at_summary
@@ -203,6 +228,11 @@ step "summary - install"
       item
         input 1328 857
         settle 12
+      item
+        settle 2
+      item "read the screen"
+        read
+          name summary_after
     until
       bind begun
       source summary_after

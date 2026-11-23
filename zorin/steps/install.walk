@@ -71,6 +71,11 @@ step "wait for the installer to put itself up"
         key ret
       item
         settle 5
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -135,7 +140,12 @@ step "updates and other software, when this build shows it"
 
 step "the updates pane is done"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -148,7 +158,12 @@ step "the updates pane is done"
 
 step "the keyboard pane is done"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -166,7 +181,12 @@ step "installation type - install now"
 
 step "the disk warning is up"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -199,7 +219,12 @@ step "write the changes to disks"
 
 step "the disk warning is answered"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -217,7 +242,12 @@ step "where are you"
 
 step "the time zone pane is done"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen

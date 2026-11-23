@@ -82,7 +82,12 @@ step "boot the default GRUB entry"
 
 step "the greeter is drawn"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name greeter
     until
       bind up
       source greeter

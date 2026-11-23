@@ -77,7 +77,12 @@ step "the medium's boot menu is up"
 
 step "that menu is this medium's own language panel"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name mxmenu
     until
       bind is_mx_menu
       source mxmenu
@@ -124,7 +129,12 @@ step "enter the rescue menu, which is what that row opens"
 
 step "the rescue menu is up, and its footer says ESC leaves it"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name mxrescue
     until
       bind is_rescue
       source mxrescue
@@ -216,7 +226,12 @@ step "desktop - installer"
 
 step "wait for the terms page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -234,7 +249,12 @@ step "terms of use"
 
 step "wait for the installation type page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -252,7 +272,12 @@ step "installation type"
 
 step "wait for the confirmation page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -275,7 +300,12 @@ step "dismiss the invalid settings modal if it is up"
 
 step "wait for the swap file page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -293,7 +323,12 @@ step "swap file"
 
 step "wait for the computer identity page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -311,7 +346,12 @@ step "computer identity"
 
 step "wait for the localization page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -329,7 +369,12 @@ step "localization defaults"
 
 step "wait for the account page"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -374,6 +419,11 @@ step "the installer finishes"
       item
         input 420 300
         settle 20
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen

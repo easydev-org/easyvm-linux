@@ -170,7 +170,12 @@ step "next from partitions"
 
 step "the users page settles before anything is typed into it"
   repeat
-    pause 8
+    do
+      item
+        settle 8
+      item "read the screen"
+        read
+          name at_users
     until
       bind here
       source at_users
@@ -331,7 +336,12 @@ step "next from users"
 
 step "the summary page arrives before install is clicked"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name settle
     until
       bind here
       source settle
@@ -383,7 +393,12 @@ step "the install writes the disk"
 
 step "the install is done"
   repeat
-    pause 15
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name done
     until
       bind finished
       source done

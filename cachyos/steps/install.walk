@@ -57,7 +57,12 @@ step "open the installer, second click"
 
 step "the installer is on screen"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name cal
     until
       bind up
       source cal
@@ -87,6 +92,11 @@ step "choose English, retrying until the page says so"
       item
         input ret
         settle 6
+      item
+        settle 2
+      item "read the screen"
+        read
+          name english
     until
       bind ok
       source english
@@ -105,7 +115,12 @@ step "next from welcome"
 
 step "the location page arrives after welcome"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_location
     until
       bind here
       source at_location
@@ -124,7 +139,12 @@ step "next from location"
 
 step "the keyboard page arrives after location"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_keyboard
     until
       bind here
       source at_keyboard
@@ -143,7 +163,12 @@ step "next from keyboard"
 
 step "the bootloader page arrives after keyboard"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_bootloader
     until
       bind here
       source at_bootloader
@@ -188,7 +213,12 @@ step "next from bootloader"
 
 step "the partitions page arrives after the bootloader"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_partitions
     until
       bind here
       source at_partitions
@@ -222,7 +252,12 @@ step "choose ext4"
 
 step "the partitions page settles after the filesystem list closes"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_partitions_again
     until
       bind here
       source at_partitions_again
@@ -277,7 +312,12 @@ step "next from packages"
 
 step "the users page arrives before anything is typed into it"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_users
     until
       bind here
       source at_users
@@ -354,7 +394,12 @@ step "next from users"
 
 step "the summary page arrives before install is clicked"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name at_summary
     until
       bind here
       source at_summary
@@ -406,7 +451,12 @@ step "the install writes the disk"
 
 step "the install is done"
   repeat
-    pause 15
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name done
     until
       bind finished
       source done

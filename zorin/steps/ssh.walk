@@ -74,7 +74,12 @@ step "boot the disk"
 
 step "the greeter's user tile is drawn"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name greeter
     until
       bind up
       source greeter
@@ -99,7 +104,12 @@ step "the password box is drawn"
   # finds. The field's own row (810,608 .. 1115,650) reads "Password oO |". A band that can see two
   # things and reports the wrong one is a band that will fail on a screen that is perfectly correct.
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name pwbox
     until
       bind box
       source pwbox

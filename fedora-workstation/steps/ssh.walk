@@ -104,7 +104,12 @@ step "boot the disk"
 
 step "the setup wizard is up"
   repeat
-    pause 10
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name wizard
     until
       bind up
       source wizard
@@ -487,6 +492,11 @@ step "dismiss the welcome dialog, which takes the keyboard"
       item
         key esc
         settle 2
+      item
+        settle 2
+      item "read the screen"
+        read
+          name welcome
     until
       bind gone
       source welcome
@@ -541,7 +551,12 @@ step "open the overview"
 
 step "the overview is open"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name ov
     until
       bind field
       source ov
@@ -565,7 +580,12 @@ step "search for the terminal"
 
 step "the Terminal result has been drawn"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name results
     until
       bind drawn
       source results
@@ -611,7 +631,12 @@ step "the terminal is open, with a prompt"
   # THE WINDOW WAS OPEN THE WHOLE TIME; the reader was looking at eight hundred rows of mostly
   # empty terminal and lost one letter of a sixteen-character word. A band one line tall cannot.
   repeat
-    pause 4
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name shell
     until
       bind ready
       source shell

@@ -21,7 +21,12 @@ step "boot the disk"
 
 step "wait for the greeter's X server to settle on the mode it was given"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name greeter
     until
       bind settled
       source greeter
@@ -49,7 +54,12 @@ step "greeter - submit"
 
 step "the first-login wizard is up, when this build shows one"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -67,6 +77,11 @@ step "walk the first-login pages to the end"
         input 1464 194
       item
         settle 4
+      item
+        settle 2
+      item "read the screen"
+        read
+          name page
     until
       bind done
       source page

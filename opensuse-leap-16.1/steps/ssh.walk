@@ -66,7 +66,12 @@ step "boot the disk"
 
 step "the disk's boot menu, when it has one"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name grubmenu
     until
       bind at_menu
       source grubmenu

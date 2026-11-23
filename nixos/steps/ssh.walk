@@ -38,7 +38,12 @@ step "boot the disk"
 
 step "the greeter is drawn"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name greeter
     until
       bind up
       source greeter
@@ -86,7 +91,12 @@ step "let the session finish starting"
 
 step "the welcome dialog is up, when this desktop shows one"
   repeat
-    pause 5
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name welcome
     until
       bind showing
       source welcome

@@ -34,7 +34,12 @@ step "boot the installer"
 
 step "wait for the installer's product chooser to draw"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name chooser
     until
       bind up
       source chooser
@@ -68,7 +73,12 @@ step "select it"
 
 step "wait for the installer's summary to draw"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name summary
     until
       bind up
       source summary
@@ -249,7 +259,12 @@ step "the install is written"
 
 step "the install finishes"
   repeat
-    pause 15
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name done
     until
       bind finished
       source done

@@ -57,6 +57,11 @@ step "the installer window is up"
       item
         click [420, 300]
         settle 3
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -74,6 +79,11 @@ step "select the language, all the way to the keyboard page"
       item
         click [1367, 810]
         settle 6
+      item
+        settle 2
+      item "read the screen"
+        read
+          name kb
     until
       bind there
       source kb
@@ -87,7 +97,12 @@ step "select the language, all the way to the keyboard page"
 
 step "the keyboard page is up"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name kb
     until
       bind there
       source kb
@@ -131,7 +146,12 @@ step "take the keyboard layout"
 
 step "the install page is up"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name inst
     until
       bind there
       source inst
@@ -155,7 +175,12 @@ step "install"
 
 step "the drive page is up"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name drv
     until
       bind there
       source drv
@@ -179,7 +204,12 @@ step "erase and install"
 
 step "wait for the account pane"
   repeat
-    pause 2
+    do
+      item
+        settle 2
+      item "read the screen"
+        read
+          name screen
     until
       bind done
       source screen
@@ -217,6 +247,11 @@ step "create user account, and wait for the password pane"
       item
         click [1367, 816]
         settle 8
+      item
+        settle 2
+      item "read the screen"
+        read
+          name pw_pane
     until
       bind there
       source pw_pane
@@ -254,7 +289,12 @@ step "create user account, and wait for the password pane"
 
 step "prove the password pane is up before typing into it"
   repeat
-    pause 4
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name pw2
     until
       bind there
       source pw2
@@ -310,7 +350,12 @@ step "confirm the password - type the value"
 
 step "prove both password rows hold characters"
   repeat
-    pause 3
+    do
+      item
+        settle 3
+      item "read the screen"
+        read
+          name pwdots
     until
       bind filled
       source pwdots
@@ -340,7 +385,12 @@ step "drive encryption - don't encrypt"
 
 step "the install has started"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name started
     until
       bind begun
       source started

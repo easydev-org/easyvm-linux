@@ -133,7 +133,12 @@ step "open it with the keyboard, because a double-click does not"
 
 step "the installer window is up"
   repeat
-    pause 6
+    do
+      item
+        settle 6
+      item "read the screen"
+        read
+          name installer
     until
       bind up
       source installer
@@ -221,7 +226,12 @@ step "who are you"
 
 step "the install finishes"
   repeat
-    pause 15
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name finished
     until
       bind done
       source finished
