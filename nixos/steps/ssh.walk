@@ -13,29 +13,9 @@ var user
 
 step "boot the disk"
   boot
-  # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
-  memory_mb 4096
-  os linux
-  timeout 900
-
-  # THE GREETER IS ASKED FOR BEFORE ANYTHING IS CLICKED, BECAUSE IT IS NOT THERE YET.
-  #
-  # MEASURED ON RUN 44550525354, whose ssh stage logged every greeter step and then sat on
-  # "Not listed?" - the user chooser - for the whole budget:
-  #
-  #	=== greeter - the user tile
-  #	=== greeter - the password box      typed 5 character(s)
-  #	=== greeter - submit                key ret
-  #	=== skip the welcome dialog
-  #	=== the desktop is up               done = false (none of "Dashboard" or "Activities" in
-  #	                                    "Nov 19 10:49 m= 4) (c) Not listed?")
-  #
-  # The typed password went nowhere because the click and the type: landed while GDM was still
-  # drawing. Same fault as cachyos's, same cure: wait for the greeter's own words first.
-  #
-  # THE BAND IS THE GREETER'S MIDDLE - the user tile and the password field. cachyos reads
-  # "Password vmuser" here at scale 2; nixos draws the same GDM, so the same band applies.
-
+    machine "q35,accel=kvm,vmport=off"
+    args [["-m", "4096"], ["-chardev", "socket,id=qga0,path={{work}}/qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file={{disk}},if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
 step "the greeter is drawn"
   repeat
     do

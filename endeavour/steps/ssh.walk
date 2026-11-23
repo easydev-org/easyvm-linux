@@ -13,26 +13,9 @@ var user
 
 step "boot the disk"
   boot
-  # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
-  memory_mb 4096
-  os linux
-  timeout 900
-
-  # THE DISK COMES UP ON GRUB AND WAITS FOR A KEY, SO THE KEY IS PRESSED FIRST.
-  #
-  # MEASURED ON RUN 44557720029, whose ssh log reads this same screen over and over:
-  #
-  #	EndeavourOS (7.1.8-arch1-3)
-  #	EndeavourOS (7.1.8-arch1-3-fallback)
-  #	Reboot Into Firmware Interface
-  #	Press Enter to ...
-  #
-  # and the greeter wait then pressed Escape into it sixty times. This walk had no boot step at all:
-  # it went from `boot: true` straight to a greeter wait, so on a medium whose disk shows GRUB the
-  # stage never reached the system.
-  #
-  # The gate is the menu's own words; Return picks the highlighted first entry.
-
+    machine "q35,accel=kvm,vmport=off"
+    args [["-m", "4096"], ["-chardev", "socket,id=qga0,path={{work}}/qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file={{disk}},if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
 step "the disk's boot menu, when it has one"
   repeat
     do

@@ -13,26 +13,9 @@ var user
 
 step "boot the disk"
   boot
-  # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
-  memory_mb 4096
-  os linux
-  timeout 900
-
-  # THE GREETER IS ASKED FOR BEFORE IT IS CLICKED. MEASURED ON THIS MEDIUM'S OWN RECORDING.
-  #
-  # RUN 44547606326's mint ssh stage ends with the greeter showing, in amber,
-  #
-  #	Vmuser User
-  #	Invalid password, please try again
-  #	[ Password ]
-  #
-  # so the click and the five characters DID arrive - the password was simply rejected, which is
-  # what a click that lands before the field has focus produces: the first characters go to the
-  # session chooser and the rest to the box.
-  #
-  # THE BAND IS THAT CARD: x 80..480, y 480..640, which reads 'Vmuser User' and 'Password' at scale
-  # 1 and 2 on that frame.
-
+    machine "q35,accel=kvm,vmport=off"
+    args [["-m", "4096"], ["-chardev", "socket,id=qga0,path={{work}}/qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file={{disk}},if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
 step "the greeter is drawn"
   repeat
     do

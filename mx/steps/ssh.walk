@@ -13,25 +13,9 @@ var user
 
 step "boot the disk"
   boot
-  # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
-  memory_mb 4096
-  os linux
-  timeout 900
-
-  # THIS DISK COMES UP IN A GRUB SHELL, AND `normal` IS WHAT LEAVES IT.
-  #
-  # MEASURED ON RUN 44557862904's mx successor, whose ssh recording is
-  #
-  #	Welcome to MX-Linux!
-  #	grub> grub> grub> grub> ...   (forty of them, cursor at the last)
-  #
-  # A bare `grub>` prompt means grub.efi ran but its own menu was not found or failed - not the same
-  # as the menu that endeavour and manjaro stop at. `normal` asks grub to load its normal module and
-  # its menu; on a disk whose /boot/grub/grub.cfg exists this lands on the menu, and the Return after
-  # it boots the first entry.
-  #
-  # The words are the shell's own prompt, so a disk that boots straight through is unaffected.
-
+    machine "q35,accel=kvm,vmport=off"
+    args [["-m", "4096"], ["-chardev", "socket,id=qga0,path={{work}}/qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file={{disk}},if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
 step "grub shell, when the disk drops into one"
   repeat
     do

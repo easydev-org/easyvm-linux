@@ -28,24 +28,9 @@ step "take the input disk"
 
 step "boot the disk"
   boot
-  # A FIXED SIZE FOR EVERY GUEST OF THIS FAMILY: see the header comment.
-  memory_mb 4096
-  os linux
-  timeout "{{ boot_timeout }}"
-
-  # THIS DISK IS ENCRYPTED, AND THIS STAGE HAS TO ANSWER PLYMOUTH LIKE THE SSH STAGE DOES.
-  #
-  # MEASURED ON RUN 44577959145's vm leg: THIRTY MINUTES of
-  #
-  #	still waiting after 29m56s (dial tcp 172.30.0.1:2222: i/o timeout)
-  #
-  # - note TIMEOUT, not refused: the guest never finished booting, so there was nothing to refuse.
-  # pop's installer takes one passphrase and uses it for the account too, so the passphrase is the
-  # same {{ password }}.
-  #
-  # The ssh leg has had this step since the same fault was found there; the vm leg boots the disk
-  # that leg produced, and needed the same step to see a system at all.
-
+    machine "q35,accel=kvm,vmport=off"
+    args [["-m", "4096"], ["-chardev", "socket,id=qga0,path={{work}}/qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file={{disk}},if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout "{{ boot_timeout }}"
 step "the disk asks for its passphrase, when it is encrypted"
   repeat
     do
