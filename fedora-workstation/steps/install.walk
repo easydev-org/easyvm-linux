@@ -42,10 +42,62 @@ step "boot the installer"
 # SO THE PROMPT IS ANSWERED FIRST, AND THE ANSWER IS ONE `ret` - the tile is preselected, the live
 # account has no password, and pressing Return is what a person does here. The step is gated on the
 # prompt's own words, so an image that boots straight to a desktop is not typed into at all.
-step "sign in to the live session, if it is asking"
+# THE LOGIN PROMPT IS ANSWERED WHEN IT IS UP, NOT WHEN THE STEP IS REACHED - AND THE FIRST ATTEMPT
+# PROVED THE DIFFERENCE.
+#
+# MEASURED on run 45225696827, whose recording is 4803 frames: at t=300 the screen is STILL
+#
+#	Nov 23  5:21 PM                          [Live System User]   <- the selected tile
+#	                                             Not listed?
+#	                          fedora
+#
+# and at t=4000 it is entirely black - the screen blanked after the idle timeout. So the `ret` this
+# step sent never reached the prompt: `when:` gates on the frame the PREVIOUS step captured, and at
+# that moment GDM had not drawn yet. The gate was false, the step was skipped, and nothing answered
+# the login for eighty minutes.
+#
+# SO IT LOOPS: wait for the prompt's own words, press Return, then confirm the prompt is GONE. A gate
+# that can only look at one frame cannot express "wait for this and then act", which is what this is.
+step "sign in to the live session"
+  repeat
+    do
+      item "read the screen"
+        read
+          name login
+    until
+      bind asking
+      source login
+      mode text
+      rect [700, 400, 1250, 600]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Live, System, User]]
+    max 60
+    pause 5
+
+
+step "press Return on the selected live user"
   input ret
-  settle 20
-  when [Live, System, User]
+  settle 25
+
+
+step "the prompt is gone, because a prompt answered is a prompt closed"
+  repeat
+    do
+      item "read the screen"
+        read
+          name after
+    until
+      bind gone
+      source after
+      mode text
+      rect [700, 400, 1250, 600]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Live, System, User]]
+      must false
+    max 60
+    pause 5
 
 step "wait for the live desktop"
   repeat
