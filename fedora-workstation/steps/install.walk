@@ -98,21 +98,41 @@ step "press Return on the selected live user"
 # desktop. A desktop only exists if the login succeeded, so the desktop check is a strictly stronger
 # witness than "the login prompt is absent", and it is one this repository has an actual picture of.
 
-step "wait for the live desktop"
+# THE LOGIN SUCCEEDS INTO A WELCOME DIALOG, AND THIS STEP WAITED FOR A BARE DESKTOP THAT IS NEVER SHOWN.
+#
+# MEASURED from run 830c644's own recording, frame at t=200:
+#
+#	Welcome to Fedora Linux
+#	This live media can be used to install Fedora Linux or as a temporary system.
+#	[ Install Fedora Linux... ]   [ Not Now ]
+#
+# - the live session HAD logged in and put its welcome dialog up. This step compares the bottom band
+# [0, 820, 1920, 1020] against reference/desktop.png, and the dialog covers the middle of the screen, so
+# the band held the wallpaper only - 0.0014 similar, never 0.9.
+#
+# AND THE SCREEN THEN BLANKED: frames at t=600 and t=1800 are entirely black. The live session's idle
+# timer fires in a few minutes, which is why the later step's `settle 45` and clicks had nothing to act
+# on.
+#
+# SO THIS STEP WAITS FOR THE DIALOG'S OWN WORDS INSTEAD. "Welcome" + "Install" appear on that dialog and
+# nowhere else in this live session, and the dialog only exists after a successful login - which is the
+# fact this step is actually trying to establish. The dialog is then dismissed by the step that already
+# existed for it, which is now reached instead of being blocked forever behind this one.
+step "the live session is up, which it announces with its welcome dialog"
   repeat
     do
       item
         read
           name screen
     until
+      bind up
       source screen
-      mode like
-      reference reference/desktop.png
-      range [0.9, 1]
-      rect [0, 820, 1920, 1020]
+      mode text
+      rect [660, 250, 1250, 900]
       rect_at [1920, 1080]
-      must true
-    max 1080
+      scale 1
+      words [[Welcome, to, Fedora], [Install, Fedora, Linux]]
+    max 240
     pause 5
 
 
