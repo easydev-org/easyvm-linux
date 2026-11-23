@@ -51,7 +51,7 @@ jobs:
       image_repository: easydev-org/easyvm
       image_tag: v0.0.3-dev
       disk_gb: "20"
-      group: kubuntu
+      group: kubuntu-ssh
       disks_repository: ${{ inputs.disks_repository }}
       stages: |
         [
