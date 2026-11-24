@@ -353,7 +353,12 @@ step "close the settings window that Next raises"
         read
           name front
       item "close it, the way the window manager closes a window"
-        input alt+F4
+        # `alt+F4` WAS REJECTED BY THE KEY TABLE: qcodes are lower case, and the error was
+        #	"alt+F4": the last part is not a qemu key name
+        # The enum in go-qemu's generated table carries `"f4"` and not `"F4"`, so the spelling here is
+        # `alt+f4`. MEASURED on run ae4c67f, whose six previous legs all died with the settings window
+        # still in front because this step never ran a keystroke at all.
+        input alt+f4
         settle 6
     until
       bind frontmost
