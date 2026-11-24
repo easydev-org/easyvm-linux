@@ -287,6 +287,55 @@ step "English (United States) is the selected language"
     pause 2
 
 
+# THE DROPDOWN IS STILL OPEN WHEN `Next` IS CLICKED, AND IT EATS THE CLICK.
+#
+# MEASURED on run 45331527514's successor (the `when_not` leg), frame at t=300: the language search
+# popup is STILL DRAWN -- `Suggested languages / English (United States) / Additional languages` at
+# y 250..400 -- while the installer sits on its Welcome page. Five seconds later, t=320, the installer
+# is GONE and only the wallpaper remains.
+#
+# The walk did exactly two things in between:
+#
+#	step welcome        input 726 999     the Next button
+#	step close settings input alt+f4      the dismissal
+#
+# A LANGUAGE POPUP IS MODAL: a click outside it is consumed by the scrim that dismisses it, so the
+# Next press never reached the wizard. anaconda stayed on Welcome. THEN the close step ran against a
+# screen with no Settings window on it, pressed `alt+f4` because its `when_not` gate could not see the
+# word `installation` behind the popup, and closed the INSTALLER ITSELF -- which is why the recording
+# has a bare desktop and `the editor is up` read `""` for its whole budget.
+#
+# SO THE POPUP IS CLOSED HERE, EXPLICITLY, AND THE STEP DOES NOT FINISH UNTIL THE LIST IS GONE. `esc`
+# dismisses a GTK search popup without touching the window behind it - unlike `alt+f4`, which is the
+# window manager's close and goes to whatever is focused.
+step "close the language list, which is modal and eats the Next click"
+  optional true
+  repeat
+    do
+      item "read the page"
+        read
+          name langpage
+      # GATED, BECAUSE `esc` IS NOT FREE: pressed with no popup open it reaches the wizard, and the
+      # wizard's own `esc` is not this step's business. `Suggested languages` is drawn by the popup
+      # and by nothing else on this page.
+      item "dismiss the popup, only while it is up"
+        input esc
+        settle 2
+        when [Suggested, languages]
+    until
+      bind closed
+      source langpage
+      mode text
+      rect [700, 140, 1600, 460]
+      rect_at [1920, 1080]
+      scale 1
+      # THE INSTALLER IS STILL THERE AND THE POPUP'S HEADINGS ARE NOT.
+      words [[Welcome]]
+      without [Suggested, Additional, languages]
+    max 10
+    pause 2
+
+
 step "the wizard is in English now"
   read
     name english
@@ -374,13 +423,18 @@ step "close the settings window that Next raises"
       item "read the top of the screen"
         read
           name front
-      item "close it, but only while the installer is NOT the window in front"
+      # A POSITIVE GATE, NOT A NEGATIVE ONE. `when_not: [installation]` asks "is the word absent",
+      # and a frame caught mid-repaint - or one covered by a popup - answers "absent" for a screen
+      # that is not Settings at all. That is how `alt+f4` was sent to the INSTALLER on the previous
+      # leg. Asking for the Settings window by name means the key is only pressed when the thing to
+      # close is actually there.
+      item "close it, only while Settings is the window in front"
         input alt+f4
         settle 6
         rect [340, 60, 1600, 420]
         rect_at [1920, 1080]
         scale 1
-        when_not [installation]
+        when [Settings, Keyboard]
     until
       bind frontmost
       source front
