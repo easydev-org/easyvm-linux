@@ -94,9 +94,45 @@ step "dismiss a browser the welcome window may have opened"
     pause 1
 
 
+# THE CLICK IS GATED ON THE WELCOME WINDOW, BECAUSE (748,431) IS A DESKTOP ICON WHEN IT IS NOT THERE.
+#
+# MEASURED on run 45415417849, the first leg with the browser guard: Firefox was gone - the guard
+# worked - and the leg still died, now on `7 7 Videos - Dolphin` with the Videos folder open. (748,431)
+# had landed on a DESKTOP icon, so the welcome window was not where this step assumes it is.
+#
+# `Welcome v26.7.2-1` puts `Start the Installer` at y≈427 inside itself, and the same pixel is a
+# folder on the wallpaper. A blind press is therefore a coin flip between "start the installer" and
+# "open whatever is under it", and the cost of losing is a file manager over the desktop for the rest
+# of the leg.
+#
+# `when:` READS THE FRAME AND DOES NOTHING WHEN IT DOES NOT MATCH - which is the shape this needs:
+# press only when the window that owns the button is on screen. The row is the one the reference
+# picture shows.
+# AND THE WINDOW IS WAITED FOR FIRST, because a gate that skips the click leaves the leg with no
+# installer at all - the failure would move from "Dolphin is in front" to "Calamares never started",
+# which is the same dead end one step later. This is the same `repeat` shape the desktop wait uses.
+step "the welcome window is up"
+  repeat
+    do
+      item "read the middle of the screen"
+        read
+          name welcome
+    until
+      bind up
+      source welcome
+      mode text
+      rect [620, 240, 1310, 780]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Start, the, Installer]]
+    max 60
+    pause 3
+
+
 step "start the installer"
   input 748 431
   settle 25
+  when [Start, Installer]
 
 
 step "choose the offline method"
