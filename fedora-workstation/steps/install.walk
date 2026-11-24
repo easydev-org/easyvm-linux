@@ -107,13 +107,34 @@ step "the live session is signed in, or asking to be"
     pause 5
 
 
+# THE GATE NAMES `System User`, NOT `Live System User`, BECAUSE OCR MIS-READS THE FIRST WORD.
+#
+# MEASURED on run 45444812419, the first leg where a `when:` on an ACTION step was actually read (the
+# engine reached `input` before `when` until easyvm 96ff5f2). Its log says, in full:
+#
+#	=== press Return on the selected live user, if the prompt is up
+#	  ... when: 16 word(s): Nov 24 5:10PM ... Li @e ive System User Not ...
+#	  skipped: the screen does not say "Live System User"
+#
+# The screen WAS the login screen - `System User` and the live user's tile are right there - and the
+# OCR turned `Live` into `Li @e ive`, which is a `Live` that is not the word `Live`. So the gate closed
+# on a frame it should have opened, the Return never went out, and the guest sat on GDM for the whole
+# ninety-minute budget: the recording's frames at t=200 and t=300 are both the untouched login screen.
+#
+# THE TWO WORDS THAT SURVIVED THAT READING ARE THE TWO THE GATE NEEDS. `System` and `User` are drawn as
+# one phrase in the live user's tile and BOTH were read correctly, while `User` appears nowhere in the
+# welcome dialog this gate exists to stay out of (`Welcome to Fedora Linux` / `This live media can be
+# used to install Fedora Linux or as a temporary system` / `Install Fedora Linux...` / `Not Now`). So
+# the AND of the two words still separates "at the login screen" from "already logged in", and it does
+# so on a frame where `Live` is garbled.
+#
+# AN ALREADY-LOGGED-IN GUEST IS NOT TYPED INTO: a Return on the welcome dialog would press whatever its
+# default button is, and that button launches the installer - which this walk opens deliberately,
+# later, at a coordinate it measured.
 step "press Return on the selected live user, if the prompt is up"
   input ret
   settle 25
-  # AN ALREADY-LOGGED-IN GUEST IS NOT TYPED INTO: a Return on the welcome dialog would press whatever
-  # its default button is, and that button launches the installer - which this walk opens deliberately,
-  # later, at a coordinate it measured.
-  when [Live, System, User]
+  when [System, User]
 
 
 # THE "PROMPT IS GONE" CONFIRMATION IS DELETED, BECAUSE IT FAILED ON A BLANK SCREEN - AND THE DESKTOP
