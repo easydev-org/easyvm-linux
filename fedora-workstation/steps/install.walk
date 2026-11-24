@@ -72,6 +72,23 @@ step "boot the installer"
 # SO "THE WELCOME DIALOG IS UP" IS AN ACCEPTED OUTCOME HERE TOO: it is proof the session started, which
 # is the only thing this step wants. The `press Return` step after it is gated on the prompt being
 # present, so an already-logged-in guest is not typed into.
+# TWO POSSIBLE SCREENS, AND THE REGION HAS TO BE THE ONE THEY SHARE.
+#
+# MEASURED from run eea9850's recording, frame t=240: GDM's user chooser is drawn with
+#
+#	[ (user icon)  Live System User ]      at x 785..1130, y 460..510
+#	 Not listed?                           at x 790..875,  y 545..560
+#
+# over a near-black background. Reading the WHOLE FRAME at scale 1 returned the empty string - tesseract
+# finds nothing in a 1920x1080 field that is 98% dark - so the loop could never see the prompt it was
+# waiting for, and the leg failed at this step with `in ""`.
+#
+# THE WELCOME DIALOG IS THE OTHER OUTCOME and it is drawn at x 660..1250, y 275..820. A region covering
+# the union of both - x 640..1290, y 250..850 - is still small enough for the text to resolve and wide
+# enough to hold either screen.
+#
+# THAT IS THE THIRD TIME THIS STEP HAS BEEN WRONG IN THE SAME WAY: a gate whose region is not the region
+# the words are in. The first was the screen saver, the second was the whole frame.
 step "the live session is signed in, or asking to be"
   repeat
     do
@@ -82,7 +99,7 @@ step "the live session is signed in, or asking to be"
       bind asking
       source login
       mode text
-      rect [0, 0, 1920, 1080]
+      rect [640, 250, 1290, 850]
       rect_at [1920, 1080]
       scale 1
       words [[Live, System, User], [Welcome, to, Fedora]]
