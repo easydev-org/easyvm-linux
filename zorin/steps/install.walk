@@ -374,9 +374,26 @@ step "the installer finishes, declining the language-pack download if it appears
       bind done
       source screen
       mode text
-      rect [583, 285, 1335, 860]
+      # THE INSTALL DOES FINISH - INTO A SMALL DIALOG THAT `scale 1` COULD NOT READ.
+      #
+      # MEASURED from run c4b80af's own recording, frame at t=3200:
+      #
+      #	+--------------------------------------------------------------+
+      #	|  Installation Complete                                    - X |
+      #	|  (i)  Installation is complete. You need to restart the       |
+      #	|       computer in order to use the new installation.          |
+      #	|                                            [ Restart Now ]    |
+      #	+--------------------------------------------------------------+
+      #
+      # at x 690..1225, y 495..640 - a 535x145 dialog. The region below already covered it, and the
+      # reading was `Pe Ne Iremietenatcen petearonineediioheststitet...`, i.e. tesseract could not
+      # resolve the dialog's small text across the whole 752x575 window.
+      #
+      # SO THE REGION SHRINKS TO THE DIALOG AND THE SCALE DOUBLES - the same fix this repository's
+      # Windows quit-dialog gate needed, for the same reason: a sentence inside a box needs the box.
+      rect [690, 495, 1225, 640]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       # THE PAGE SAYS "Installation Complete", AND NONE OF THE THREE PHRASES BELOW APPEARED ON IT.
       #
       # MEASURED on the fourth run at this step: the reading was
@@ -391,7 +408,9 @@ step "the installer finishes, declining the language-pack download if it appears
       # `Installation` + `Complete` TOGETHER IS THE WITNESS, and it is safe: no other page in this
       # wizard carries both words. `is complete` catches the body line when the title is mangled more
       # badly than above.
-      words [[Installation, Complete], [instalation, Is, complete], [congratulations], [All, done]]
+      # `Installation` + `Complete` is the title; `is complete` and `Restart Now` are the body and the
+      # button. Any one proves the copy finished, and all three exist only on this dialog.
+      words [[Installation, Complete], [is, complete], [Restart, Now]]
     max 180
     pause 10
 

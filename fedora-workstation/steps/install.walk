@@ -58,7 +58,21 @@ step "boot the installer"
 #
 # SO IT LOOPS: wait for the prompt's own words, press Return, then confirm the prompt is GONE. A gate
 # that can only look at one frame cannot express "wait for this and then act", which is what this is.
-step "sign in to the live session"
+# THE LIVE SESSION MAY ALREADY HAVE LOGGED ITSELF IN, AND THIS LOOP MUST ACCEPT THAT.
+#
+# MEASURED on run 68ccf6d: the leg failed HERE with
+#
+#	none of "Live System User" in "Welcome to Fedora Linux This live media can be used ..."
+#
+# - the welcome dialog was already on screen. Whatever made the prompt appear on earlier runs (an
+# autologin timeout, a different GDM configuration between builds) did not happen this time, and the
+# loop that waits for the prompt could only ever time out on a guest that had already done what the loop
+# was for.
+#
+# SO "THE WELCOME DIALOG IS UP" IS AN ACCEPTED OUTCOME HERE TOO: it is proof the session started, which
+# is the only thing this step wants. The `press Return` step after it is gated on the prompt being
+# present, so an already-logged-in guest is not typed into.
+step "the live session is signed in, or asking to be"
   repeat
     do
       item "read the screen"
@@ -68,17 +82,21 @@ step "sign in to the live session"
       bind asking
       source login
       mode text
-      rect [700, 400, 1250, 600]
+      rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
       scale 1
-      words [[Live, System, User]]
-    max 60
+      words [[Live, System, User], [Welcome, to, Fedora]]
+    max 90
     pause 5
 
 
-step "press Return on the selected live user"
+step "press Return on the selected live user, if the prompt is up"
   input ret
   settle 25
+  # AN ALREADY-LOGGED-IN GUEST IS NOT TYPED INTO: a Return on the welcome dialog would press whatever
+  # its default button is, and that button launches the installer - which this walk opens deliberately,
+  # later, at a coordinate it measured.
+  when [Live, System, User]
 
 
 # THE "PROMPT IS GONE" CONFIRMATION IS DELETED, BECAUSE IT FAILED ON A BLANK SCREEN - AND THE DESKTOP
