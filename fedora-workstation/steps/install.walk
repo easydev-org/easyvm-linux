@@ -239,42 +239,6 @@ step "anaconda's web ui is up"
 # SO THE CLOSE BUTTON IS CLICKED, THEN THE INSTALLER'S OWN TITLE IS CONFIRMED TO BE THE TOP-MOST TEXT.
 # The second half matters because the settings window can come back: something in this live session
 # opened it once already, and a dismissal that cannot say "the installer is in front now" is a guess.
-# A GUARD, NOT A STEP OF THE INSTALL. The click that used to raise GNOME Settings is gone (see the
-# language step above), so on a correct run there is nothing here to close and these two steps do
-# nothing. Both are `optional` for exactly that reason: a guard that FAILS when there is nothing to
-# guard against turns a working install into a failing leg, which is the shape of mistake this file
-# has paid for more than once.
-step "close a settings window that should not be there"
-  optional true
-  input
-    click [1425, 254]
-  settle 4
-  rect [340, 60, 1600, 400]
-  rect_at [1920, 1080]
-  scale 1
-  when_not [installation]
-
-
-step "the installer is the window in front"
-  optional true
-  repeat
-    do
-      item "read the top of the screen"
-        read
-          name front
-    until
-      bind frontmost
-      source front
-      mode text
-      rect [340, 60, 1600, 400]
-      rect_at [1920, 1080]
-      scale 1
-      words [[installation]]
-      without [Notifications, Mouse, Color, Printers, Accessibility, Wellbeing, Keyboard]
-    max 20
-    pause 3
-
-
 step "open the language search"
   input 938 224
   settle 2
@@ -342,6 +306,51 @@ step "it speaks English"
 step "welcome"
   input 726 999
   settle 15
+
+
+# CLICKING `Next` ON THE WELCOME PAGE IS WHAT RAISES GNOME SETTINGS, AND THE RECORDING PINS IT TO THE
+# SECOND.
+#
+# MEASURED on run 37960c9, frame by frame around the transition:
+#
+#	t=300   the installer's Welcome page, `English (United States)` ticked, NO settings window
+#	t=315   the same page, still no settings window
+#	t=320   GNOME Settings -> Keyboard, ON TOP of the installer (x 470..1450, y 215..865)
+#
+# Between 315 and 320 the walk did exactly one thing: `input 726 999`, the `Next` button. (The button's
+# blue fill measures x 690..765, y 982..1017, so 999 is its vertical centre - the click is on the
+# button, not beside it.) The window is therefore a side effect of advancing anaconda's language page,
+# not of any stray click, and no coordinate change can prevent it.
+#
+# SO IT IS CLOSED HERE, IMMEDIATELY, BEFORE ANY LATER STEP TYPES OR CLICKS. The `[x]` of the Keyboard
+# panel draws at x 1423..1430, y 255..260 - its centre is (1426,257). `esc` does NOT close it: that
+# closes the panel's sub-page and was tried in an earlier fix, which left the same window in front.
+#
+# THE LOOP IS NOT A NICETY. The window came back after one dismissal in an earlier run, so the step
+# reads the screen again after clicking and only finishes when the installer's own title is the
+# top-most text and none of Settings' section names is beside it.
+step "close the settings window that Next raises"
+  optional true
+  repeat
+    do
+      item "read the top of the screen"
+        read
+          name front
+      item "click the Keyboard panel's close button"
+        input
+          click [1426, 257]
+        settle 5
+    until
+      bind frontmost
+      source front
+      mode text
+      rect [340, 60, 1600, 420]
+      rect_at [1920, 1080]
+      scale 1
+      words [[installation]]
+      without [Notifications, Mouse, Color, Printers, Accessibility, Wellbeing, Keyboard, Search]
+    max 15
+    pause 3
 
 
 step "the installation method page"
