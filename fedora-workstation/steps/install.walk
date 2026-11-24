@@ -219,6 +219,56 @@ step "anaconda's web ui is up"
     max 60
 
 
+# A GNOME SETTINGS WINDOW CAN BE SITTING ON TOP OF THE INSTALLER, AND THE SEARCH CLICK LANDS ON IT.
+#
+# MEASURED from run 5b490fe's recording, frame t=800:
+#
+#	+--- Fedora Linux 45 (Workstation Edition) installation -------------------+
+#	|  1 Welcome   <- the installer's own page, BEHIND                      x |
+#	|  ( Settings .......................................  [x] )              |
+#	|    Notifications / Search / Keyboard / Mouse & Touchpad / ...           |
+#	|    Keyboard: Input Sources  [ English (US) ]   + Add Input Source        |
+#	+--------------------------------------------------------------------------+
+#
+# The installer's Language search box is at (938,224), and a GNOME Settings window - opened by an
+# earlier stray click - covers that area. So the text `united states` went into the Settings window's
+# search, the installer's Language field stayed empty, and `the editor is up` then read
+# "nguage | united states | Keyboard ..." for its whole budget.
+#
+# SO ANY SETTINGS WINDOW IS DISMISSED FIRST, AND THE CLICK IS MADE ONLY WHEN THE INSTALLER IS THE ONLY
+# THING ON SCREEN. `esc` closes a GTK settings window; the loop below waits for the installer's own
+# title to be the top-most text before touching the language field.
+step "close any settings window that is covering the installer"
+  input esc
+  settle 4
+
+
+step "the installer is the window in front"
+  repeat
+    do
+      item "read the top of the screen"
+        read
+          name front
+      item "dismiss anything still over it"
+        input esc
+        settle 3
+        rect [340, 60, 1600, 150]
+        rect_at [1920, 1080]
+        scale 1
+        when_not [installation]
+    until
+      bind frontmost
+      source front
+      mode text
+      rect [340, 60, 1600, 150]
+      rect_at [1920, 1080]
+      scale 1
+      words [[installation]]
+      without [Settings, Notifications, Keyboard, Mouse]
+    max 30
+    pause 3
+
+
 step "open the language search"
   input 938 224
   settle 2
