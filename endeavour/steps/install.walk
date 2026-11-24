@@ -47,6 +47,53 @@ step "let the desktop settle"
   settle 15
 
 
+# THE WELCOME WINDOW HAS A ROW THAT OPENS A BROWSER, AND IT SITS 170 PIXELS BELOW THE ONE WANTED.
+#
+# MEASURED on run 45397293704, whose recording ends on this picture:
+#
+#	Firefox, maximised, on discovery.endeavouros.com/forum-log-tool-options/...
+#	404 | Discovery - "Page not found. Check the URL or try using the search bar."
+#
+# and the walk's own log reads `none of "Reuse" in "Check the URL or try using the search bar."` at
+# every later step - every click after this one landed on Firefox, which by then covered the desktop.
+#
+# THE WELCOME WINDOW IS `Welcome v26.7.2-1`, and its rows are:
+#
+#	Start the Installer                     y≈427     <- what this step means to press
+#	Update Mirrors (Arch, reflector-simple) y≈469
+#	Change display resolution               y≈428  (right column)
+#	How to share system logs                y≈598     <- opens Firefox
+#
+# THE TWO ARE FAR APART IN MEANING AND 170 PIXELS APART ON SCREEN, so one misplaced click is a
+# browser over the installer for the rest of the leg. This step now looks FIRST and dismisses a
+# browser if one is in front, because a Firefox that opened by accident is the failure that was
+# measured, and nothing else in this walk looks like it.
+step "dismiss a browser the welcome window may have opened"
+  optional true
+  repeat
+    do
+      item "read the screen"
+        read
+          name front
+      # `alt+f4` IS THE WINDOW MANAGER'S CLOSE AND IT GOES TO THE FOCUSED WINDOW, which a maximised
+      # Firefox is. `esc` was the first attempt and it does not close a browser window - it stops a
+      # page load, which this one has already finished.
+      item "close it if a browser is in front"
+        input alt+f4
+        settle 3
+        when [Firefox, Discovery, Privacy, Notice]
+    until
+      bind clean
+      source front
+      mode text
+      rect [0, 0, 1920, 120]
+      rect_at [1920, 1080]
+      scale 1
+      without [Firefox, Discovery]
+    max 4
+    pause 1
+
+
 step "start the installer"
   input 748 431
   settle 25
