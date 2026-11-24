@@ -329,6 +329,22 @@ step "welcome"
 # THE LOOP IS NOT A NICETY. The window came back after one dismissal in an earlier run, so the step
 # reads the screen again after clicking and only finishes when the installer's own title is the
 # top-most text and none of Settings' section names is beside it.
+# `(1426,257)` WAS THE KEYBOARD SUB-PANEL'S BUTTON, NOT THE WINDOW'S - THE CLICK DID NOTHING.
+#
+# MEASURED on run 45325485796, whose frames at t=420 AND t=700 are the same picture with Settings still
+# on top - seven minutes after the close step had supposedly run. Screen geometry from that frame:
+#
+#	the outer Settings window   x 470..1457   <- what covers the installer
+#	its title row                y≈245        <- `Settings`, with no `[x]` on it
+#	the Keyboard SUB-PANEL      x 710..1450, title row y≈257, and ITS `[x]` at x 1423..1430
+#
+# So (1426,257) closed the sub-panel's own button and left the window - and in libadwaita the panel's
+# close and the window's are two different controls, the outer one simply not drawn.
+#
+# `alt+F4` IS THE WINDOW MANAGER'S OWN "CLOSE THIS WINDOW", which is the operation actually wanted. It
+# is also unconditional: it goes to whatever is focused, and a settings window that has just been
+# clicked into IS focused. The step presses it once and then asks the screen whether the installer is
+# in front - so a press that did nothing is caught rather than assumed.
 step "close the settings window that Next raises"
   optional true
   repeat
@@ -336,10 +352,9 @@ step "close the settings window that Next raises"
       item "read the top of the screen"
         read
           name front
-      item "click the Keyboard panel's close button"
-        input
-          click [1426, 257]
-        settle 5
+      item "close it, the way the window manager closes a window"
+        input alt+F4
+        settle 6
     until
       bind frontmost
       source front
@@ -349,7 +364,7 @@ step "close the settings window that Next raises"
       scale 1
       words [[installation]]
       without [Notifications, Mouse, Color, Printers, Accessibility, Wellbeing, Keyboard, Search]
-    max 15
+    max 12
     pause 3
 
 
