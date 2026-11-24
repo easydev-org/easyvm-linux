@@ -28,6 +28,15 @@ on:
       disks_repository:
         description: "the ghcr repository that holds the disks"
         default: "easydev-org/easyvm-linux"
+      # THE ENGINE THIS LEG RUNS INSIDE, OVERRIDABLE SO A FIX CAN BE DRIVEN BY A REAL GUEST BEFORE IT
+      # IS PUBLISHED AS A RELEASE TAG.
+      #
+      # The default does not change: `v0.0.4` is what every other install workflow in this repository
+      # pins, and a fix that is only in `latest` must be proved HERE by a dispatch that names the sha
+      # it was built from - not by moving everybody onto an unreleased image to find out.
+      image_tag:
+        description: "the engine image tag (a release tag, `latest`, or a build sha)"
+        default: "v0.0.4"
 
 concurrency:
   group: fedora-workstation-install
@@ -44,7 +53,7 @@ jobs:
     secrets: inherit
     with:
       image_repository: easydev-org/easyvm
-      image_tag: v0.0.4
+      image_tag: ${{ inputs.image_tag }}
       disk_gb: "20"
       group: fedora-workstation-install
       disks_repository: ${{ inputs.disks_repository }}
