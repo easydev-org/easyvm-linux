@@ -47,92 +47,48 @@ step "let the desktop settle"
   settle 15
 
 
-# THE WELCOME WINDOW HAS A ROW THAT OPENS A BROWSER, AND IT SITS 170 PIXELS BELOW THE ONE WANTED.
+# THE WELCOME WINDOW IS WHAT THIS STEP IS ABOUT, SO THE STEP WAITS FOR IT AND THEN PRESSES.
 #
-# MEASURED on run 45397293704, whose recording ends on this picture:
+# NO GUARD AGAINST A BROWSER, NO `alt+f4`, NO GATING OF THE PRESS. An earlier attempt added all three
+# and each one made the leg worse:
 #
-#	Firefox, maximised, on discovery.endeavouros.com/forum-log-tool-options/...
-#	404 | Discovery - "Page not found. Check the URL or try using the search bar."
+#	1st   a browser-dismiss guard with `alt+f4`   - `alt+f4` closes the FOCUSED window, and the
+#	                                                 Welcome window is a candidate whenever the OCR
+#	                                                 reads `Firefox` or `Privacy` anywhere on screen
+#	                                                 (both words are drawn in that window's own text)
+#	2nd   a `when: [Start, Installer]` on the press - skipped the press whenever the window was late,
+#	                                                 so the failure moved from "a window is in front"
+#	                                                 to "the installer never started"
+#	3rd   a browser-dismiss before both           - measured on 45418398321 as a BARE DESKTOP: no
+#	                                                 Welcome window at all, because (1) had closed it
 #
-# and the walk's own log reads `none of "Reuse" in "Check the URL or try using the search bar."` at
-# every later step - every click after this one landed on Firefox, which by then covered the desktop.
+# THE FLOW SHOULD HAVE BEEN ONE THING: wait until `Start the Installer` is readable, then press it. The
+# window is drawn by the live session's own startup and arrives on its own schedule; every "fix" above
+# was a reaction to a window that had been opened by a previous misplaced click rather than a cause.
 #
-# THE WELCOME WINDOW IS `Welcome v26.7.2-1`, and its rows are:
-#
-#	Start the Installer                     y≈427     <- what this step means to press
-#	Update Mirrors (Arch, reflector-simple) y≈469
-#	Change display resolution               y≈428  (right column)
-#	How to share system logs                y≈598     <- opens Firefox
-#
-# THE TWO ARE FAR APART IN MEANING AND 170 PIXELS APART ON SCREEN, so one misplaced click is a
-# browser over the installer for the rest of the leg. This step now looks FIRST and dismisses a
-# browser if one is in front, because a Firefox that opened by accident is the failure that was
-# measured, and nothing else in this walk looks like it.
-step "dismiss a browser the welcome window may have opened"
-  optional true
+# THE RECT IS THE WINDOW'S OWN BAND, measured from `reference/desktop.png`: `Start the Installer` is the
+# first row under the INSTALL tab, at y≈427, spanning x≈640..1300.
+step "start the installer"
   repeat
     do
-      item "read the screen"
-        read
-          name front
-      # `alt+f4` IS THE WINDOW MANAGER'S CLOSE AND IT GOES TO THE FOCUSED WINDOW, which a maximised
-      # Firefox is. `esc` was the first attempt and it does not close a browser window - it stops a
-      # page load, which this one has already finished.
-      item "close it if a browser is in front"
-        input alt+f4
-        settle 3
-        when [Firefox, Discovery, Privacy, Notice]
-    until
-      bind clean
-      source front
-      mode text
-      rect [0, 0, 1920, 120]
-      rect_at [1920, 1080]
-      scale 1
-      without [Firefox, Discovery]
-    max 4
-    pause 1
-
-
-# THE CLICK IS GATED ON THE WELCOME WINDOW, BECAUSE (748,431) IS A DESKTOP ICON WHEN IT IS NOT THERE.
-#
-# MEASURED on run 45415417849, the first leg with the browser guard: Firefox was gone - the guard
-# worked - and the leg still died, now on `7 7 Videos - Dolphin` with the Videos folder open. (748,431)
-# had landed on a DESKTOP icon, so the welcome window was not where this step assumes it is.
-#
-# `Welcome v26.7.2-1` puts `Start the Installer` at y≈427 inside itself, and the same pixel is a
-# folder on the wallpaper. A blind press is therefore a coin flip between "start the installer" and
-# "open whatever is under it", and the cost of losing is a file manager over the desktop for the rest
-# of the leg.
-#
-# `when:` READS THE FRAME AND DOES NOTHING WHEN IT DOES NOT MATCH - which is the shape this needs:
-# press only when the window that owns the button is on screen. The row is the one the reference
-# picture shows.
-# AND THE WINDOW IS WAITED FOR FIRST, because a gate that skips the click leaves the leg with no
-# installer at all - the failure would move from "Dolphin is in front" to "Calamares never started",
-# which is the same dead end one step later. This is the same `repeat` shape the desktop wait uses.
-step "the welcome window is up"
-  repeat
-    do
-      item "read the middle of the screen"
+      item "read the welcome window"
         read
           name welcome
     until
-      bind up
+      bind ready
       source welcome
       mode text
-      rect [620, 240, 1310, 780]
+      rect [640, 400, 1310, 460]
       rect_at [1920, 1080]
-      scale 1
-      words [[Start, the, Installer]]
-    max 60
+      scale 2
+      words [[Start]]
+    max 90
     pause 3
 
 
-step "start the installer"
+step "press Start the Installer"
   input 748 431
   settle 25
-  when [Start, Installer]
 
 
 step "choose the offline method"
