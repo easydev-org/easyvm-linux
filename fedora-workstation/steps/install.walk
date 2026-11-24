@@ -219,53 +219,59 @@ step "anaconda's web ui is up"
     max 60
 
 
-# A GNOME SETTINGS WINDOW CAN BE SITTING ON TOP OF THE INSTALLER, AND THE SEARCH CLICK LANDS ON IT.
+# A GNOME SETTINGS WINDOW SITS ON TOP OF THE INSTALLER, AND `esc` DOES NOT CLOSE IT.
 #
-# MEASURED from run 5b490fe's recording, frame t=800:
+# MEASURED TWICE. Run 5b490fe's frame at t=800 and run 8c23436's frame at t=900 are the SAME picture,
+# and the second run HAD the `esc`-based dismissal this comment replaces:
 #
-#	+--- Fedora Linux 45 (Workstation Edition) installation -------------------+
-#	|  1 Welcome   <- the installer's own page, BEHIND                      x |
-#	|  ( Settings .......................................  [x] )              |
-#	|    Notifications / Search / Keyboard / Mouse & Touchpad / ...           |
-#	|    Keyboard: Input Sources  [ English (US) ]   + Add Input Source        |
-#	+--------------------------------------------------------------------------+
+#	+--- Fedora Linux 45 (Workstation Edition) installation -------------- x -+
+#	|  1 Welcome  <- the installer's own page, BEHIND                         |
+#	|  ( Settings ..........................................  [x] )          |
+#	|    Notifications / Search / Keyboard / Mouse & Touchpad / ...          |
+#	|    Keyboard:  Input Sources [ English (US) ]  + Add Input Source        |
+#	+-------------------------------------------------------------------------+
 #
-# The installer's Language search box is at (938,224), and a GNOME Settings window - opened by an
-# earlier stray click - covers that area. So the text `united states` went into the Settings window's
-# search, the installer's Language field stayed empty, and `the editor is up` then read
-# "nguage | united states | Keyboard ..." for its whole budget.
+# A GNOME Settings window is a GTK4/libadwaita window and Esc closes its SUB-PAGES, not the window:
+# pressing once leaves the Keyboard panel up, which is exactly what both recordings show. The window's
+# own close button is at (1425, 254) - the `[x]` in the frame above - and a click there is
+# unconditional in a way a key is not.
 #
-# SO ANY SETTINGS WINDOW IS DISMISSED FIRST, AND THE CLICK IS MADE ONLY WHEN THE INSTALLER IS THE ONLY
-# THING ON SCREEN. `esc` closes a GTK settings window; the loop below waits for the installer's own
-# title to be the top-most text before touching the language field.
-step "close any settings window that is covering the installer"
-  input esc
+# SO THE CLOSE BUTTON IS CLICKED, THEN THE INSTALLER'S OWN TITLE IS CONFIRMED TO BE THE TOP-MOST TEXT.
+# The second half matters because the settings window can come back: something in this live session
+# opened it once already, and a dismissal that cannot say "the installer is in front now" is a guess.
+# A GUARD, NOT A STEP OF THE INSTALL. The click that used to raise GNOME Settings is gone (see the
+# language step above), so on a correct run there is nothing here to close and these two steps do
+# nothing. Both are `optional` for exactly that reason: a guard that FAILS when there is nothing to
+# guard against turns a working install into a failing leg, which is the shape of mistake this file
+# has paid for more than once.
+step "close a settings window that should not be there"
+  optional true
+  input
+    click [1425, 254]
   settle 4
+  rect [340, 60, 1600, 400]
+  rect_at [1920, 1080]
+  scale 1
+  when_not [installation]
 
 
 step "the installer is the window in front"
+  optional true
   repeat
     do
       item "read the top of the screen"
         read
           name front
-      item "dismiss anything still over it"
-        input esc
-        settle 3
-        rect [340, 60, 1600, 150]
-        rect_at [1920, 1080]
-        scale 1
-        when_not [installation]
     until
       bind frontmost
       source front
       mode text
-      rect [340, 60, 1600, 150]
+      rect [340, 60, 1600, 400]
       rect_at [1920, 1080]
       scale 1
       words [[installation]]
-      without [Settings, Notifications, Keyboard, Mouse]
-    max 30
+      without [Notifications, Mouse, Color, Printers, Accessibility, Wellbeing, Keyboard]
+    max 20
     pause 3
 
 
@@ -279,9 +285,42 @@ step "search for the United States"
   input text "united states"
 
 
-step "choose English (United States)"
-  input 853 314
-  settle 6
+# THE LANGUAGE IS ALREADY SELECTED, AND CLICKING ITS ROW IS WHAT OPENED GNOME SETTINGS.
+#
+# MEASURED from run 8c23436's recording:
+#
+#	t=150   a bare desktop - no installer, no settings window
+#	t=250   the installer's Welcome page, `united states` typed, and
+#	        `English (United States)  ✓` ALREADY TICKED in the list
+#	        `Keyboard  Change system keyboard layout` as a separate link below it
+#	t=400   GNOME Settings -> Keyboard, sitting ON TOP of the installer
+#	        (Input Sources: English (US), + Add Input Source)
+#
+# So the click at (853,314) - the middle of the English row - landed on a ROW THAT WAS ALREADY
+# SELECTED, and the same click is what raised the keyboard panel: the installer's language row and the
+# desktop's own input-source machinery share the same gesture, and the latter opened a window on top of
+# the install. Every later step then typed and clicked into Settings instead of anaconda.
+#
+# THE ROW NEEDS NO CLICK. It carries the tick before anything touches it, because `united states` in
+# the search box filters the list to one entry and anaconda selects the single match itself. The step
+# is now a READ that asserts the tick is there - which is what the old click was trying to establish
+# anyway - and a failing assert is a leg that stops before typing into a settings window.
+step "English (United States) is the selected language"
+  repeat
+    do
+      item "read the language list"
+        read
+          name langlist
+    until
+      bind chosen
+      source langlist
+      mode text
+      rect [760, 250, 1130, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[English, United, States]]
+    max 20
+    pause 2
 
 
 step "the wizard is in English now"
