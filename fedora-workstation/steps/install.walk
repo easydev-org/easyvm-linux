@@ -153,7 +153,27 @@ step "press Return on the selected live user, if the prompt is up"
 # nowhere else in this live session, and the dialog only exists after a successful login - which is the
 # fact this step is actually trying to establish. The dialog is then dismissed by the step that already
 # existed for it, which is now reached instead of being blocked forever behind this one.
-step "the live session is up, which it announces with its welcome dialog"
+# THE WAIT IS A PICTURE, BECAUSE A LIVE SESSION IS A PICTURE AND THE WORDS ARE NOT UNIQUE TO IT.
+#
+# WHAT THIS REPLACES AND WHY. The step read `[[Welcome, to, Fedora], [Install, Fedora, Linux]]` over
+# the middle of the screen. That is the dialog's own text, but text is the weaker witness of the two:
+# it passes on any frame that draws those words, including a stale one, and a guest that has not
+# finished drawing reads as an empty string rather than as "not yet" - which is how a wait over words
+# can burn its whole budget on a screen it never actually saw.
+#
+# `reference/welcome-dialog.png` IS THIS LIVE SESSION'S OWN FRAME, at t=120s of the run that produced
+# it: the `Welcome to Fedora Linux` dialog over the wallpaper, at 1920x1080. The band is the dialog's
+# logo and title, which is the part that only exists when the dialog does.
+#
+# MEASURED, as this engine's own comparison (share of pixels within tolerance 8, sampled every 4th):
+#
+#	the dialog                 1.0000      <- the picture the reference was cut from
+#	the bare Fedora desktop    0.0000      <- same wallpaper, no dialog
+#	the anaconda installer     0.8093      <- the page AFTER the dialog is dismissed
+#
+# So `[0.9, 1]` accepts the dialog and refuses both the bare desktop and the installer that follows
+# it, which is the whole question this step asks.
+step "wait for the live desktop to draw its welcome dialog"
   repeat
     do
       item
@@ -162,12 +182,13 @@ step "the live session is up, which it announces with its welcome dialog"
     until
       bind up
       source screen
-      mode text
-      rect [660, 250, 1250, 900]
+      mode like
+      reference reference/welcome-dialog.png
+      range [0.9, 1]
+      rect [780, 360, 1145, 585]
       rect_at [1920, 1080]
-      scale 1
-      words [[Welcome, to, Fedora], [Install, Fedora, Linux]]
-    max 240
+      must true
+    max 1080
     pause 5
 
 
@@ -176,25 +197,11 @@ step "a pointer nudge on the wallpaper, so the idle timer starts again"
   settle 20
 
 
-step "answer the live session's welcome dialog"
-  repeat
-    do
-      item
-        settle 5
-      item "read the screen"
-        read
-          name welcome_dialog
-    until
-      bind offered
-      source welcome_dialog
-      mode text
-      rect [773, 536, 1001, 639]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Welcome], [Install]]
-    max 30
-
-
+# THE WAIT FOR THE DIALOG IS THE PICTURE STEP ABOVE, SO A SECOND WAIT ON ITS WORDS IS GONE.
+#
+# It only waited - it never answered anything - and it waited on the same two words the picture step
+# has already proved are on screen. Two waits for one pane is two chances to be told "not yet" about a
+# frame the first one accepted.
 step "launch the installer"
   input 830 698
   settle 25

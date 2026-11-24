@@ -81,7 +81,11 @@ step "start the installer"
       rect [640, 400, 1310, 460]
       rect_at [1920, 1080]
       scale 2
-      words [[Start]]
+      # TWO WORDS, NOT ONE. `[[Start]]` ALONE IS A WORD EVERY DESKTOP HAS SOMEWHERE - a menu, a
+      # button, a launcher - so a one-word wait can pass over a bare desktop with no installer on
+      # it, which is exactly the failure this step exists to prevent. The row itself reads
+      # `Start the Installer`, so both words are on it and on nothing else in this live session.
+      words [[Start, Installer]]
     max 90
     pause 3
 
