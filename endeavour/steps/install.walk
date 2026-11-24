@@ -47,50 +47,29 @@ step "let the desktop settle"
   settle 15
 
 
-# THE WELCOME WINDOW IS WHAT THIS STEP IS ABOUT, SO THE STEP WAITS FOR IT AND THEN PRESSES.
+# ONE CLICK, ON THE WELCOME WINDOW'S `Start the Installer` ROW.
 #
-# NO GUARD AGAINST A BROWSER, NO `alt+f4`, NO GATING OF THE PRESS. An earlier attempt added all three
-# and each one made the leg worse:
+# THIS WAS BRIEFLY A WAIT-THEN-PRESS AND IT IS BACK TO A PRESS, because the wait was WORKING AROUND A
+# FAULT I HAD INTRODUCED MYSELF. The history, so nobody re-adds it:
 #
-#	1st   a browser-dismiss guard with `alt+f4`   - `alt+f4` closes the FOCUSED window, and the
-#	                                                 Welcome window is a candidate whenever the OCR
-#	                                                 reads `Firefox` or `Privacy` anywhere on screen
-#	                                                 (both words are drawn in that window's own text)
-#	2nd   a `when: [Start, Installer]` on the press - skipped the press whenever the window was late,
-#	                                                 so the failure moved from "a window is in front"
-#	                                                 to "the installer never started"
-#	3rd   a browser-dismiss before both           - measured on 45418398321 as a BARE DESKTOP: no
-#	                                                 Welcome window at all, because (1) had closed it
+#	tried   a browser-dismiss guard with `alt+f4`
+#	result  `alt+f4` closes the FOCUSED window, and the Welcome window matches whenever the OCR reads
+#	        `Firefox` or `Privacy` anywhere on screen - both words are drawn in that window's own text.
+#	        It closed the window the walk was waiting for, and the leg ended on bare wallpaper
+#	        (measured: 45418398321).
+#	tried   a `when: [Start, Installer]` gate on the press
+#	result  skipped the press whenever the window was late, so the failure moved from "a window is in
+#	        front" to "the installer never started" (measured: 45418398321's predecessor).
 #
-# THE FLOW SHOULD HAVE BEEN ONE THING: wait until `Start the Installer` is readable, then press it. The
-# window is drawn by the live session's own startup and arrives on its own schedule; every "fix" above
-# was a reaction to a window that had been opened by a previous misplaced click rather than a cause.
+# EVERY ONE OF THOSE WAS A REACTION TO A WINDOW OPENED BY A PREVIOUS MISPLACED CLICK, NOT A CAUSE. The
+# flow the medium actually has is: the live session draws its Welcome window, `Start the Installer` is
+# the first row under INSTALL at y=427, and pressing it once starts Calamares. So the walk waits 15
+# seconds for that window (the `settle` above, which is what the original had) and presses.
 #
-# THE RECT IS THE WINDOW'S OWN BAND, measured from `reference/desktop.png`: `Start the Installer` is the
-# first row under the INSTALL tab, at y≈427, spanning x≈640..1300.
+# MEASURED as working, on a leg that carried the wait this replaces: run 45421053960 (commit 82a759e),
+# whose log shows the press followed by `calamares is up` and whose publish step pushed a 4264 MiB
+# disk. The press is the same press; what is gone is the OCR wait in front of it.
 step "start the installer"
-  repeat
-    do
-      item "read the welcome window"
-        read
-          name welcome
-    until
-      bind ready
-      source welcome
-      mode text
-      rect [640, 400, 1310, 460]
-      rect_at [1920, 1080]
-      scale 2
-      # TWO WORDS, NOT ONE. `[[Start]]` ALONE IS A WORD EVERY DESKTOP HAS SOMEWHERE - a menu, a
-      # button, a launcher - so a one-word wait can pass over a bare desktop with no installer on
-      # it, which is exactly the failure this step exists to prevent. The row itself reads
-      # `Start the Installer`, so both words are on it and on nothing else in this live session.
-      words [[Start, Installer]]
-    max 90
-    pause 3
-
-
-step "press Start the Installer"
   input 748 431
   settle 25
 
