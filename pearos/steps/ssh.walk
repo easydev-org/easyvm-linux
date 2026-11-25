@@ -365,45 +365,49 @@ step "the greeter is up"
     pause 5
 
 
-# THE GREETER IS ANSWERED FROM THE KEYBOARD, BECAUSE THE CLICK MISSES THE BOX.
+# THE GREETER IS ANSWERED THE WAY THAT ALREADY WORKED ONCE, PLUS A CLEAR.
 #
-# MEASURED on run 45650926213: the recording reads `Login failed` under the avatar, so the password
-# reached SDDM and was rejected - and the log's desktop check read the box's own dots
-# (`ee ee ee ee Ae ee ce ee eee`) for its whole budget. Clicking (960, 942) aims at where the box was
-# drawn in the hand run; on this greeter the box is a bare line under the avatar, and a click that
-# lands on the wallpaper leaves the field unfocused, so the text goes nowhere SDDM reads.
+# TWO ATTEMPTS FAILED HERE AND EACH TAUGHT SOMETHING:
 #
-# SO NO CLICK: `ret` on a greeter opens the password field and focuses it, which is what SDDM does for
-# a person pressing Enter at a login screen. Typing then goes into the focused field whatever pixel it
-# is drawn at, and the second `ret` submits. This is the keyboard path nixos' stage uses for its
-# overview and macos' for its setup assistant, and it needs no coordinate at all.
+#	run 45641931139  clicked (960,880) then typed at (960,942) -> `Login failed`
+#	run 45650926213  same, with longer settles                     -> `Login failed`
+#	local run        same                                          -> logged in, 39/39
 #
-# TWO PRESSES OF THE PASSWORD ARE TRIED, because `Login failed` was measured once: if the first attempt
-# was refused, the second runs against a field that already has focus and a password box that has been
-# cleared by the failure.
-step "wake the greeter and focus the password field"
-  input ret
-  settle 8
+# The click is the avatar, which is what opens SDDM's password field - so the field exists. What differs
+# between the local pass and the failing runs is what was ALREADY IN the box: SDDM remembers a failed
+# entry, and a `input text` that appends makes `admin1admin1` or `admin1` after a stale prefix.
+#
+# `clear: true` NOW ACTUALLY CLEARS (it was declared in the vocabulary and never implemented - fixed in
+# easyvm 17d2724), so the field is emptied before the password is typed, whatever the greeter left there.
+#
+# THE AVATAR IS CLICKED RATHER THAN `ret` PRESSED because that is the path the local run proved; the
+# keyboard path was tried in the last two CI runs and both ended on `Login failed` as well.
+step "pick the account"
+  input 960 880
+  settle 15
 
-step "type the password"
+step "type the password into an emptied field"
   input text "{{ password }}"
+    at 960 942
+    clear true
   settle 5
 
 step "submit the password"
   input ret
-  settle 25
+  settle 30
 
-step "and once more, for a greeter that refuses a press it did not see"
-  input ret
-  settle 10
-
-step "the password, a second time"
+# AND ONCE MORE, BECAUSE A GREETER THAT DID NOT SEE THE FIRST PRESS LEAVES THE BOX FOCUSED AND EMPTY -
+# the second pass then types into a field that is ready for it, which is exactly the case `clear:`
+# makes safe to repeat.
+step "the password again, for a press the display manager may not have taken"
   input text "{{ password }}"
-  settle 5
+    at 960 942
+    clear true
+  settle 4
 
-step "submit again"
+step "submit it again"
   input ret
-  settle 40
+  settle 30
 
 
 # THE DESKTOP, AND ITS OWN WITNESS IS THE MENU BAR. pearOS draws `Welcome File Edit View Go Window Help`
