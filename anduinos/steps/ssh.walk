@@ -59,8 +59,17 @@ step "the disk's boot menu, when it has one"
   optional
 
 
-# THE DESKTOP, WHICH THE PREVIOUS RUN ALREADY RECORDED AND THIS RUN STILL HAS TO WAIT FOR: the steps
-# below need a session to type into, and a `run:` before the session exists types into nothing.
+# THE DESKTOP, AND THE FIRST RUN OF THIS VERSION PROVED THE OBVIOUS CHECK WRONG.
+#
+# It waited for `Activities` in the top bar, which is GNOME's own label - and run 45624016210 spent its
+# whole budget reading an empty top bar while the recording showed a complete desktop: Home and Trash
+# on the left, a five-icon dock along the bottom, a clock reading 08:11 on the right. AnduinOS draws its
+# top bar without that label, so the word was never going to appear on a machine that was already
+# logged in.
+#
+# `Welcome Home.` IS THE WITNESS INSTEAD: it is the body of the `AnduinOS Setup` window that this
+# desktop opens on first login, it is large and centred, and it exists ONLY once the session is up.
+# Both frames of that run carry it - 60s and 340s - which is also why the next step closes it.
 step "the desktop is up"
   repeat
     do
@@ -73,10 +82,10 @@ step "the desktop is up"
       bind there
       source desk
       mode text
-      rect [0, 0, 1920, 60]
+      rect [700, 580, 1250, 660]
       rect_at [1920, 1080]
       scale 1
-      words [[Activities]]
+      words [[Welcome, Home]]
     max 90
     pause 5
 
