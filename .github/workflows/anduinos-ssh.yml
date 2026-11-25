@@ -1,0 +1,65 @@
+name: anduinos-ssh
+
+# # ENDEAVOUR, ONE STAGE: its `ssh.yaml`.
+#
+# THAT IS THE STAGE THAT PROVES THE MACHINE - the disk boots, the guest reaches a desktop, sshd
+# answers, and the bootstrap chain can be checked - without paying for an install that is 20 to 40
+# minutes of clicking through a wizard.
+#
+# ITS TAG IS `linux-anduinos-ssh`, NOT THE `anduinos-ssh` SHAPE WINDOWS AND MACOS USE. Discovered rather
+# than assumed: a wrong tag is a 404 at pull time that reads like a registry problem.
+#
+# THE NAME IS THE DISTRIBUTION, AND THAT IS THE POINT OF THE SPLIT.
+#
+# `concurrency:` IS PER WORKFLOW, so dispatching `ubuntu` cannot cancel `ghostbsd` or `windows`. A single
+# file holding every stage meant DISPATCHING A LINUX FIX CANCELLED A RUNNING WINDOWS INSTALL - measured,
+# forty minutes of one thrown away. The group exists to stop two runs fighting over one machine, and a
+# matrix leg is not one machine: every leg gets its own runner.
+#
+# AND THE MECHANISM IS NOT COPIED. The container options, the device probes, the pull, the daemon and
+# the follow loop live once in `stage.yml`, called with `workflow_call`. easydiskbake's 26 workflows
+# repeat the same container stanza 23 times; that is the duplication this avoids.
+
+on:
+  # ONE STAGE, DISPATCHED BY HAND. This was a job inside `anduinos.yml`, where `needs:` decided the
+  # order; each stage is its own workflow now.
+  workflow_dispatch:
+    inputs:
+      disks_repository:
+        description: "the ghcr repository that holds the disks"
+        default: "easydev-org/easyvm-linux"
+      from_tag:
+        description: >-
+          the PUBLISHED disk this stage continues from (default linux-anduinos)
+        default: "linux-anduinos"
+
+concurrency:
+  group: anduinos-ssh
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  checks: write
+
+jobs:
+  ssh:
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.4
+    secrets: inherit
+    with:
+      image_repository: easydev-org/easyvm
+      image_tag: v0.0.4
+      disk_gb: "20"
+      group: anduinos-ssh
+      disks_repository: ${{ inputs.disks_repository }}
+      stages: |
+        [
+          {
+            "name": "linux-anduinos-ssh",
+            "file": "anduinos/steps/ssh.walk",
+            "pull": "${{ inputs.from_tag }}",
+            "out": "linux-anduinos-ssh.qcow2",
+            "timeout": 60,
+            "publish": "linux-anduinos-ssh"
+          }
+        ]

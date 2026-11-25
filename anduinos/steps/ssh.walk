@@ -1,0 +1,62 @@
+walkthrough "anduinos - sshd answers for the account the installer created"
+resolution 1920x1080
+recording_resolution 1920x1080
+var out
+  default out/distro.qcow2
+  from args.out
+password admin1
+var user
+  default vmuser
+  from args.user
+
+
+# THE GUEST SIGNS ITSELF IN, WHICH IS A PROPERTY THIS INSTALL SET ON PURPOSE.
+#
+# The installer's `Advanced Options` page carries `Log in to the desktop without a password`, and
+# `install.walk` turns it ON - so there is no greeter to answer here and no password to type. What the
+# stage has to prove instead is that sshd, which the same page enabled with
+# `Allow SSH login with the account password`, is answering for that account.
+#
+# MEASURED as necessary: with that switch left OFF - its default - sshd refuses the account and every
+# `run:` in this repository's later stages produces nothing.
+step "boot the installed disk"
+  boot
+    machine "q35,accel=kvm,vmport=off"
+    args [["-cpu", "Skylake-Client-v4"], ["-smp", "4"], ["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
+
+
+# THE BOOT MENU IS SKIPPED WHEN IT IS NOT THERE, because an installed AnduinOS boots straight through
+# and a leg that insisted on a menu would fail on a system that is working.
+step "the disk's boot menu, when it has one"
+  input ret
+  settle 10
+  rect [400, 300, 1520, 780]
+  rect_at [1920, 1080]
+  scale 1
+  when [anduinos, advanced]
+  optional
+
+
+step "sshd answers for the installer's account"
+  repeat
+    until machine_ssh
+    max 90
+    pause 10
+
+
+step "prove the build over ssh"
+  ssh "grep PRETTY_NAME /etc/os-release"
+
+
+step "prove the account over ssh"
+  ssh "id -un"
+
+
+step "prove the file system is the one the installer was told to make"
+  ssh "findmnt -no FSTYPE /"
+
+
+step "stop the machine"
+  stop kill
+  timeout 120

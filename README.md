@@ -7,6 +7,7 @@ Walkthroughs, reference images and CI for **Linux** guests, driven by
 
 | Directory | Distribution |
 |---|---|
+| `anduinos/` | AnduinOS |
 | `ubuntu/` | Ubuntu Desktop |
 | `mint/` | Linux Mint |
 | `kubuntu/` | Kubuntu |

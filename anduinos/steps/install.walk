@@ -1,0 +1,240 @@
+walkthrough "anduinos - the installer's eleven pages, on ext4"
+resolution 1920x1080
+recording_resolution 1920x1080
+var out
+  default out/distro.qcow2
+  from args.out
+password admin1
+var user
+  default vmuser
+  from args.user
+
+
+# THE PASSWORD IS `admin1` AND NOT `admin`, BECAUSE THIS INSTALLER REFUSES FIVE CHARACTERS.
+#
+# MEASURED in the installer's own source, `/usr/lib/anduinos-installer-beta/pages.py`, read out of
+# `LiveOS/rootfs.squashfs` on the medium:
+#
+#	elif pword and len(pword) < 6:
+#	    pass_warn.set_label(_("Password must be at least 6 characters.", lang))
+#	    pass_warn.set_visible(True)
+#	    valid["pass"] = False
+#	...
+#	all_valid = valid["name"] and valid["pass"] and valid["host"]
+#	nxt_btn.set_sensitive(all_valid)
+#
+# SO THE RED LINE IS NOT A WARNING - it clears the validity flag and DISABLES Next. Confirmed twice:
+# in the source above, and on the screen, where the Next pill is (56,91,133) with `admin` and
+# (93,154,227) with `admin1`.
+#
+# THE USERNAME HAS ITS OWN POLICY, also from the source
+# (`installer_core/username_policy.py`): `^[a-z][a-z0-9]{0,15}$`, and not root/live/ubuntu.
+
+
+step "the media this stage boots from is already on disk"
+  needs [anduinos.iso]
+
+
+# SIXTY-FOUR GIB, BECAUSE THE INSTALLER REFUSES A SMALLER DISK.
+#
+# MEASURED on a 24 GiB disk: the `Select Installation Disk` page drew the row with a red `Too small`
+# and disabled Next, so the four pages behind it were unreachable. The medium's own floor is
+# `At least 6 GiB is required to install AnduinOS.` (pages.py) and its published minimum is 25 GiB;
+# 64 GiB is what the walk that reached 100% used.
+step "create the empty disk"
+  disk
+    file disk.qcow2
+    size 64
+
+
+step "boot the installer"
+  boot
+    machine "q35,accel=kvm,vmport=off"
+    args [["-cpu", "Skylake-Client-v4"], ["-smp", "4"], ["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=anduinos.iso,media=cdrom,readonly=on,if=none,id=media0"], ["-device", "ide-cd,drive=media0,bootindex=0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=1"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 1800
+
+
+# THE LIVE SESSION GOES STRAIGHT TO A DESKTOP AND OPENS THE INSTALLER ITSELF - there is no greeter
+# and no login step, which is the difference from fedora-workstation. What is waited for is therefore
+# the installer's OWN window, not a desktop picture.
+step "the installer window is up"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name screen
+    until
+      bind up
+      source screen
+      mode text
+      rect [520, 230, 1420, 350]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Welcome, to, AnduinOS], [Keyboard, Layout], [Updates, and, Drivers]]
+    max 180
+    pause 4
+
+
+step "page 1 - the language, already English (United States)"
+  input 1338 815
+  settle 12
+
+
+step "page 2 - the keyboard, already English (US)"
+  input 1338 815
+  settle 12
+
+
+# THE UPDATER BOX IS CLEARED BECAUSE A CI RUNNER HAS NO INTERNET. It is ticked by default
+# (`Download and install system updates during installation`), and a leg that leaves it on spends
+# its budget waiting for a mirror it cannot reach.
+step "page 3 - clear the download-updates box"
+  input 562 442
+  settle 6
+
+
+step "page 3 - next"
+  input 1338 815
+  settle 12
+
+
+# THE DISK ROW HAS TO BE CLICKED BEFORE Next WILL DO ANYTHING. MEASURED: the pill is (56,91,133)
+# - disabled - until the row is chosen, then (73,144,231).
+step "page 4 - select the storage device"
+  input 800 423
+  settle 8
+
+
+step "page 4 - next"
+  input 1338 815
+  settle 12
+
+
+# EXT4, NEVER THE DEFAULT. `Btrfs - recommended` is preselected and this walk chooses
+# `ext4 - classic` instead, because every other distribution in this repository installs ext4.
+step "page 5 - choose ext4, not btrfs"
+  input 960 545
+  settle 8
+
+
+step "page 5 - next"
+  input 1338 815
+  settle 12
+
+
+step "page 6 - the swap slider is already 5 GiB"
+  input 1338 815
+  settle 15
+
+
+# THE FIVE FIELDS OF `User Account`, AT THE CENTRES THE INSTALLER ACTUALLY DRAWS THEM.
+#
+# MEASURED by finding the input bands on the frame: 454, 520, 586, 652, 718. The first attempt used
+# 452/508/564/620 and the values ran together into one field, because 508 is below the username box
+# and the focus never left it. Each entry therefore clicks, selects all and deletes first.
+step "page 7 - full name"
+  input text "VM User"
+    at 960 454
+  settle 3
+
+
+step "page 7 - username"
+  input text "{{ user }}"
+    at 960 520
+  settle 3
+
+
+step "page 7 - password"
+  input text "{{ password }}"
+    at 960 586
+  settle 3
+
+
+step "page 7 - confirm the password"
+  input text "{{ password }}"
+    at 960 652
+  settle 4
+
+
+step "page 7 - next"
+  input 1338 815
+  settle 15
+
+
+# THREE SWITCHES THAT ARE ALL OFF BY DEFAULT, AND ALL THREE ARE NEEDED.
+#
+# `Allow SSH login with the account password` is the one that matters most: every later stage of this
+# repository reaches the guest over ssh, and with this off sshd answers nothing. The other two are
+# what the smoke stage expects of a live-like install.
+step "page 8 - sudo without a password"
+  input 1250 486
+  settle 4
+
+
+step "page 8 - log in without a password"
+  input 1250 542
+  settle 4
+
+
+step "page 8 - allow ssh with the account password"
+  input 1250 676
+  settle 4
+
+
+step "page 8 - next"
+  input 1338 815
+  settle 15
+
+
+step "page 9 - the timezone, already America/New_York"
+  input 1338 815
+  settle 15
+
+
+step "page 10 - install"
+  input 1338 815
+  settle 12
+
+
+# THE LAST CONFIRMATION IS ITS OWN DIALOG, and its button says `Erase Disk and Install`.
+step "page 10 - erase the disk and install"
+  input 960 637
+  settle 20
+
+
+step "the install runs to a hundred per cent"
+  repeat
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name progress
+    until
+      bind done
+      source progress
+      mode text
+      rect [500, 760, 1430, 860]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Installation, complete], [Installation, Complete]]
+    max 240
+    pause 10
+
+
+# `Installation complete` IS NOT THE SAME AS "INSTALLED": the medium still boots, so `Reboot Now`
+# would come back to the installer. The disk is what this stage publishes, and the walk's ending is
+# the same ending every other distribution uses - stop, then copy the disk out.
+step "give the installer its last few seconds, because \"complete\" is not \"flushed\""
+  settle 25
+
+
+step "stop the machine"
+  stop kill
+  timeout 120
+
+
+step "publish the disk"
+    save "{{ out }}"
