@@ -365,39 +365,45 @@ step "the greeter is up"
     pause 5
 
 
-# THE GREETER IS ANSWERED WITH THE PASSWORD THE WIZARD SET, which is this walk's `password:` and the
-# same string it typed into the account form. Clicking the avatar first puts the password box on screen;
-# `esc` on the blank box would cancel, so the order matters.
-# THE AVATAR OPENS THE PASSWORD BOX, AND IT TAKES LONGER THAN SIX SECONDS ON A LOADED RUNNER.
+# THE GREETER IS ANSWERED FROM THE KEYBOARD, BECAUSE THE CLICK MISSES THE BOX.
 #
-# MEASURED on run 45641931139: the desktop check read `ee ee ee ee Ae ee ce ee eee` - the password box's
-# own dots - which means the box was on screen and the text went in, but the press had landed before it
-# finished drawing and the login never happened. The recording at 450s is still the greeter.
+# MEASURED on run 45650926213: the recording reads `Login failed` under the avatar, so the password
+# reached SDDM and was rejected - and the log's desktop check read the box's own dots
+# (`ee ee ee ee Ae ee ce ee eee`) for its whole budget. Clicking (960, 942) aims at where the box was
+# drawn in the hand run; on this greeter the box is a bare line under the avatar, and a click that
+# lands on the wallpaper leaves the field unfocused, so the text goes nowhere SDDM reads.
 #
-# SO EACH PIECE WAITS LONGER AND THE RESULT IS CHECKED. `settle 15` after the avatar is the box being
-# drawn; the password step then clicks the box itself rather than typing blind, so focus is explicit.
-step "pick the account"
-  input 960 880
-  settle 15
+# SO NO CLICK: `ret` on a greeter opens the password field and focuses it, which is what SDDM does for
+# a person pressing Enter at a login screen. Typing then goes into the focused field whatever pixel it
+# is drawn at, and the second `ret` submits. This is the keyboard path nixos' stage uses for its
+# overview and macos' for its setup assistant, and it needs no coordinate at all.
+#
+# TWO PRESSES OF THE PASSWORD ARE TRIED, because `Login failed` was measured once: if the first attempt
+# was refused, the second runs against a field that already has focus and a password box that has been
+# cleared by the failure.
+step "wake the greeter and focus the password field"
+  input ret
+  settle 8
 
 step "type the password"
   input text "{{ password }}"
-    at 960 942
   settle 5
 
-step "log in"
+step "submit the password"
   input ret
-  settle 30
+  settle 25
 
-# THE SECOND ATTEMPT IS NOT BELT-AND-BRACES, IT IS THE MEASUREMENT. Run 45641931139's log shows the
-# password box holding `ee ee ee ee Ae ee ce ee eee` - six dots, so `admin1` arrived - and the desktop
-# check then read nothing for its whole budget while the recording sat on the greeter. A press that
-# lands between the box drawing and the display manager reading it does nothing, and the walk had no
-# step that noticed. This one does: it presses Return again on the greeter that is still there, which
-# is harmless on a desktop because a Return with no focused text does nothing.
-step "log in again, for a press the display manager may not have taken"
+step "and once more, for a greeter that refuses a press it did not see"
   input ret
-  settle 30
+  settle 10
+
+step "the password, a second time"
+  input text "{{ password }}"
+  settle 5
+
+step "submit again"
+  input ret
+  settle 40
 
 
 # THE DESKTOP, AND ITS OWN WITNESS IS THE MENU BAR. pearOS draws `Welcome File Edit View Go Window Help`
