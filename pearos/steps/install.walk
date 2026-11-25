@@ -195,33 +195,30 @@ step "summary - install"
   settle 30
 
 
-# THE INSTALL ITSELF, WHICH IS A PROGRESS LINE RATHER THAN A PAGE TO ANSWER. Its last caption is
-# `Done` and its bar reads `100%`.
-step "the install runs to a hundred per cent"
+# THE INSTALL, READ FROM THE ONE LINE THAT IS ACTUALLY LEGIBLE WHEN IT ENDS.
+#
+# THIS STEP USED TO WATCH A 25-PIXEL STRIP ALONG THE BOTTOM FOR THE WORD `Done`, AND THAT COST A
+# FULL RUN: 83 minutes in `follow it`, then failure, while the install had finished in about twenty.
+# The recording from run 45600760174 ends on a complete install - `All done. / pearOS has been
+# installed on your computer. / [ ] Restart now / [Back] [Next] [Done]` - and the log shows why the
+# strip never matched it:
+#
+#	see: 1 word(s): ES          <- progress captions, 7%, 20%, 38%, 52%, 63%
+#	...
+#	see: 0 word(s):             <- 159 consecutive reads of the strip, all empty
+#
+# The strip is blank on the progress page and its button label is too small for the reader at
+# `scale 1`, so the walk waited forever on a page it had already passed. The heading is the witness:
+# `All done.` is drawn large, centred, and on no other page of this installer.
+#
+# THE `max` COVERS THE WHOLE INSTALL, not the end of it: this step starts when `Install` is pressed
+# and the unpack-and-configure phase measured about twenty minutes in CI, so 120 attempts of
+# fifteen seconds is thirty minutes of headroom past what the hand run took.
+step "the install runs to all done"
   repeat
     do
       item
         settle 15
-      item "read the screen"
-        read
-          name progress
-    until
-      bind done
-      source progress
-      mode text
-      rect [0, 855, 1920, 880]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Done]]
-    max 200
-    pause 10
-
-
-step "finish - all done"
-  repeat
-    do
-      item
-        settle 5
       item "read the screen"
         read
           name fin
@@ -229,12 +226,12 @@ step "finish - all done"
       bind there
       source fin
       mode text
-      rect [700, 380, 1240, 500]
+      rect [700, 390, 1240, 440]
       rect_at [1920, 1080]
       scale 1
       words [[All, done]]
-    max 40
-    pause 3
+    max 120
+    pause 5
 
 
 step "dismiss the finished installer"
