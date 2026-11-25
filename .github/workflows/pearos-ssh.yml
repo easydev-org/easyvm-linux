@@ -51,6 +51,22 @@ jobs:
       disk_gb: "20"
       group: pearos-ssh
       disks_repository: ${{ inputs.disks_repository }}
+      # THE WALK'S `password:` LINE IS A TEMPLATE VARIABLE, NOT A CREDENTIAL FOR THE DAEMON.
+      #
+      # MEASURED: `walk.File` has no password field - `password admin1` feeds `{{ password }}`
+      # substitution only - and `stage.yml` passes `--password` to `easyvm run` only when a CALLER
+      # provides one. So the daemon's ssh client dialed with an empty password and every `ssh:` step
+      # answered
+      #
+      #	ssh: handshake failed: unable to authenticate, attempted methods [none password],
+      #	no supported methods remain
+      #
+      # on machines whose sshd was active and whose account took that very password from sudo. The
+      # local runs passed because they were started by hand with `--password admin1`.
+      #
+      # IT IS SPELLED HERE RATHER THAN DERIVED, because the daemon needs the value and no part of the
+      # walk can hand it one. `install.walk` sets this same string on the disk.
+      password: "admin1"
       stages: |
         [
           {
