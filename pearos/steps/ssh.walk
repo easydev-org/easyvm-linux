@@ -1,0 +1,378 @@
+walkthrough "pearos - the first-boot wizard, the desktop, and sshd answering"
+resolution 1920x1080
+recording_resolution 1920x1080
+var out
+  default out/distro.qcow2
+  from args.out
+password admin1
+var user
+  default vmuser
+  from args.user
+
+
+# pearOS HAS NO `Remote Login` PANEL, AND THIS STAGE IS WHERE THAT MATTERS.
+#
+# macOS answers this with System Settings -> General -> Sharing -> Remote Login, a switch that enables
+# sshd and opens the door in one gesture. pearOS has nothing of the sort: it is Arch with KDE, so ssh
+# is openssh and `sshd.service`, and a fresh install ships the package but leaves the unit DISABLED
+# and the account without any key. There is no button to find, so the walk has to do what a person
+# with a terminal would do.
+#
+# THE ACCOUNT IS CREATED BY THE INSTALLER, NOT BY THE INSTALL WIZARD.
+#
+# The Calamares sequence in `pear-calamares-config` has no `users` page - which is why `install.walk`
+# fills no user form - but its last shellprocess runs
+#
+#	arch-chroot ${ROOT} useradd -m -g users -G wheel,autologin -s /bin/bash default
+#	arch-chroot ${ROOT} bash -c "echo 'default:pearos' | chpasswd"
+#	printf 'default ALL=(ALL) NOPASSWD:ALL' >> ${ROOT}/etc/sudoers
+#
+# so the installed disk signs itself in as `default` with the password `pearos`, and that account has
+# passwordless sudo. That is what makes the ssh stage possible at all: there is a session to run a
+# command from without anyone typing at a greeter.
+#
+# THE FIRST BOOT RUNS A WIZARD THAT THE DISK CANNOT SKIP.
+#
+# `/usr/local/bin/bin_post`, installed into /etc/skel/.config/autostart, starts an Electron app at
+# login: a `hello` page, then language, keymap, timezone, the account form, a light/dark choice, an
+# agreement, and `finish`. `finish` runs `post_setup`, which creates the account the user typed,
+# installs a one-shot unit that deletes `default` before SDDM starts, and closes the window.
+#
+# SO `default` EXISTS ONLY UNTIL THE WIZARD IS ANSWERED. This walk answers it, which is not a
+# formality: on a disk left at the `hello` page, `default` is the only account and its passwordless
+# sudo is the only way in.
+#
+# WHAT THIS STAGE PROVES, in order, and each is a different claim:
+#
+#	1. the disk boots to the wizard (the smoke stage already records this much)
+#	2. the wizard can be driven to the end, which is the only path to a desktop
+#	3. `post_setup` completes and the desktop appears
+#	4. sshd can be enabled from that desktop
+#	5. sshd actually answers for the account just created
+#
+# STEP 5 IS THE ONE THE PIPELINE NEEDS. Everything after this stage reaches the guest over ssh, and
+# an enabled unit that no account can authenticate against is the same as no sshd at all.
+
+step "boot the installed disk"
+  boot
+    machine "q35,accel=kvm,vmport=off"
+    args [["-cpu", "Skylake-Client-v4"], ["-smp", "4"], ["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 900
+
+
+# THE WIZARD OPENS ON `hello`, WHICH IS A SINGLE `Continue` BUTTON UNDER A LARGE HAND-DRAWN WORD.
+#
+# The word is drawn as an SVG stroke that animates in over four seconds, so its bounding box is where
+# the eye lands but the button is what has to be pressed. The check reads the button's own label.
+step "the hello page"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name hello
+    until
+      bind there
+      source hello
+      mode text
+      rect [880, 850, 1060, 950]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Continue]]
+    max 60
+    pause 3
+
+
+step "hello - continue"
+  input 970 900
+  settle 8
+
+
+# THE WIZARD'S OWN SCREENS, EACH A HEADING AND A `Continue`. The headings are the checks because they
+# are the largest text on every page and appear nowhere else in this installer.
+step "the language page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name lang
+    until
+      bind there
+      source lang
+      mode text
+      rect [400, 250, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Select, Your, Language]]
+    max 60
+    pause 3
+
+step "language - continue, American English is first"
+  input 960 930
+  settle 8
+
+
+step "the keyboard page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name kmap
+    until
+      bind there
+      source kmap
+      mode text
+      rect [400, 250, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Select, Your, Keyboard, Layout]]
+    max 60
+    pause 3
+
+step "keyboard - continue, US is first"
+  input 960 930
+  settle 8
+
+
+step "the time zone page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name tz
+    until
+      bind there
+      source tz
+      mode text
+      rect [400, 250, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Select, Your, Time, Zone]]
+    max 60
+    pause 3
+
+step "time zone - continue"
+  input 960 930
+  settle 8
+
+
+# THE ACCOUNT FORM, WHICH IS THE PAGE THAT MAKES `default` UNNECESSARY.
+#
+# Five fields, top to bottom: full name, account name, hostname (pre-filled with `pearOS-machine`),
+# password, verify password. `full_name` is written to /tmp/fullname with quotes around it and passed
+# to `useradd -c`, so it may contain spaces; the account name is checked by the page's own regex,
+# `^[a-z][a-z0-9-]*$`, which is why the walk uses `{{ user }}` and not something with a dot in it.
+step "the account page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name acct
+    until
+      bind there
+      source acct
+      mode text
+      rect [400, 200, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Create, a, Computer, Account]]
+    max 60
+    pause 3
+
+# ONE `input` PER STEP, AND `at` IS THE FIELD'S CENTRE: the verb clicks there, selects all and deletes
+# before typing, so a field that already holds text (the hostname's `pearOS-machine`) arrives empty
+# rather than appended to.
+step "account - full name"
+  input text "VM User"
+    at 960 430
+  settle 3
+
+step "account - account name"
+  input text "{{ user }}"
+    at 960 490
+  settle 3
+
+step "account - password"
+  input text "{{ password }}"
+    at 800 700
+  settle 3
+
+step "account - verify password"
+  input text "{{ password }}"
+    at 1100 700
+  settle 4
+
+step "account - continue"
+  input 960 930
+  settle 6
+
+
+step "the appearance page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name look
+    until
+      bind there
+      source look
+      mode text
+      rect [400, 200, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Choose, Your, Look]]
+    max 60
+    pause 3
+
+step "appearance - continue, light is selected"
+  input 960 930
+  settle 6
+
+
+step "the agreement page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name agree
+    until
+      bind there
+      source agree
+      mode text
+      rect [400, 200, 1500, 400]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Terms, and, Conditions]]
+    max 60
+    pause 3
+
+step "agreement - continue"
+  input 960 930
+  settle 6
+
+
+# `FINISH` IS NOT A BUTTON: THE PAGE RUNS `post_setup` ITSELF and closes its own window when the script
+# reports success. So the check here is the DESKTOP, not a word on the page - the wizard's `welcome`
+# animation and the KDE desktop are the two things that tell the script's success from its failure.
+#
+# `post_setup` creates the account, schedules the removal of `default`, sets the keymap and timezone,
+# and rewrites sudoers; the page shows its log while it runs, and on failure draws the error in place
+# of the desktop. Ten minutes is generous for a script whose own units are seconds, and it is bounded
+# because an installer that hangs here would otherwise hang the stage.
+step "post_setup runs and the window closes"
+  settle 300
+
+
+step "the desktop is up"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name desk
+    until
+      bind there
+      source desk
+      mode text
+      rect [0, 0, 1920, 60]
+      rect_at [1920, 1080]
+      scale 1
+      words [[File, Edit, View]]
+    max 120
+    pause 5
+
+
+# SSH IS NOT A SWITCH ON THIS SYSTEM, SO IT IS TURNED ON THE WAY ARCH TURNS IT ON - with the same
+# steps endeavouros and kubuntu use in their own ssh stages, because pearOS is Arch with KDE and those
+# two are the files that already drive a KDE terminal in this repository.
+#
+# `openssh` IS ALREADY INSTALLED - it is in the ISO's package list - so unlike endeavouros there is
+# nothing to `pacman -Sy`. What remains is the three things that stage does after its install:
+#
+#	1. open a terminal                    `input ctrl+alt+t`
+#	2. knocks the screen awake             `xset s off; xset s noblank`
+#	3. unlock sudo once, then enable       `printf '%s\n' <pw> | sudo -S -v`  then plain `sudo -S`
+#
+# THE PASSWORD GOES IN THROUGH `sudo -S -v` ONCE AND NOT INTO EVERY COMMAND. endeavouros' comment is
+# the measurement: a password inside each long command meant a dropped keystroke turned into a
+# `sudo: authentication failure` ten minutes later, with the password visible in the process list
+# besides.
+#
+# `terminal_wait 0` AFTER THE CHORD, WHICH IS NOT AN OMISSION. `terminal_wait:` OPENS A TERMINAL
+# (ctrl+alt+t) AND THEN TYPES, so leaving it at its default after this step's own chord would start a
+# SECOND window and send the command to that one while the first sat empty. That is measured in
+# endeavour's file as the kubuntu recording where `SCREEN_KEPT_ON` ran straight into `ECHO ADMIN`.
+step "open the terminal"
+  input ctrl+alt+t
+  settle 20
+
+
+# THE SCREEN IS KEPT AWAKE FIRST. A blanked screen takes no keys, and this stage waits ten minutes for
+# an install-like idle; `xset s off` alone is enough, and `-dpms` is left out because KDE answers
+# "server does not have extension for -dpms option" - harmless, but noise in the log.
+step "keep the screen on"
+  run "printf '%s\n' {{ password }} | sudo -S -v; /usr/bin/xset s off; /usr/bin/xset s noblank"
+  settle 8
+  terminal_wait 0
+
+
+# THE ARCH STOCK sshd_config NEEDS NO EDIT FOR A PASSWORD LOGIN. `PasswordAuthentication` is commented
+# out at its compiled default of `yes`; only `PermitRootLogin` is narrowed, and this stage never logs in
+# as root. endeavouros has to write `99-vm.conf` because its medium ships a config that turns password
+# authentication off - pearOS does not, so writing one here would be copying a fix for a different
+# distribution's fault.
+step "start sshd now and at every boot"
+  run "sudo -S systemctl enable --now sshd"
+  settle 20
+  terminal_wait 0
+
+
+step "the unit says it is running"
+  run "systemctl is-active sshd"
+  settle 6
+  terminal_wait 0
+
+
+step "sshd answers"
+  repeat
+    until machine_ssh
+    max 90
+    pause 10
+
+
+step "the build, over ssh"
+  ssh "grep PRETTY_NAME /etc/os-release"
+
+
+step "the account, over ssh"
+  ssh "id -un"
+
+
+step "the file system, over ssh"
+  ssh "findmnt -no FSTYPE /"
+
+
+# THE WIZARD'S OWN TRACE, WHICH IS WHAT MAKES THE ACCOUNT REAL RATHER THAN A LEFTOVER: `default` is
+# scheduled for deletion by the same script that created this one, so a machine that still answers as
+# `default` never finished `post_setup`.
+step "the account the wizard made is the one that answers"
+  ssh "test \"$(id -un)\" = '{{ user }}'"
+
+
+step "stop the machine"
+  stop kill
+  timeout 120

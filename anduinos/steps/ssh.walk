@@ -13,12 +13,33 @@ var user
 # THE GUEST SIGNS ITSELF IN, WHICH IS A PROPERTY THIS INSTALL SET ON PURPOSE.
 #
 # The installer's `Advanced Options` page carries `Log in to the desktop without a password`, and
-# `install.walk` turns it ON - so there is no greeter to answer here and no password to type. What the
-# stage has to prove instead is that sshd, which the same page enabled with
-# `Allow SSH login with the account password`, is answering for that account.
+# `install.walk` turns it ON - so there is no greeter to answer here and no password to type.
 #
-# MEASURED as necessary: with that switch left OFF - its default - sshd refuses the account and every
-# `run:` in this repository's later stages produces nothing.
+# BUT AN INSTALL WITH SSH OFF DOES NOT MERELY HAVE A STOPPED SERVICE - IT HAS NO HOST KEYS EITHER.
+#
+# MEASURED on run 45619910239, the first run of this stage: the machine reached a complete GNOME
+# desktop in under a minute (the recording at 60s and again at 340s shows Home, Trash, the dock and a
+# clock that has advanced five minutes), and every ssh attempt answered
+#
+#	ssh: handshake failed: ssh: unable to authenticate, attempted methods [none password],
+#	no supported methods remain
+#
+# which is not "connection refused" - something was listening and refusing this account. AnduinOS'
+# OWN acceptance suite documents the cause, in tests/business/desktop/lifecycle.py:
+#
+#	# An installation with SSH disabled may not have generated host keys. This is the disposable
+#	# control channel, not the product's SSH-enable assertion; initialize its keys before starting
+#	# it.
+#	"ssh-keygen -A\n"
+#	"systemctl enable --now ssh.service\n",
+#
+# so the fix is those two commands in that order, on the desktop. `ssh-keygen -A` is what the
+# installer's own `Allow SSH login` switch was expected to leave behind and did not.
+#
+# THE GNOME WELCOME WINDOW IS CLOSED FIRST, because it is modal-ish about the keyboard: the run above
+# recorded `AnduinOS Setup` / `Welcome Home` filling the centre of the desktop at every frame, and a
+# terminal opened behind it would take the keys instead of the desktop.
+
 step "boot the installed disk"
   boot
     machine "q35,accel=kvm,vmport=off"
@@ -38,6 +59,89 @@ step "the disk's boot menu, when it has one"
   optional
 
 
+# THE DESKTOP, WHICH THE PREVIOUS RUN ALREADY RECORDED AND THIS RUN STILL HAS TO WAIT FOR: the steps
+# below need a session to type into, and a `run:` before the session exists types into nothing.
+step "the desktop is up"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name desk
+    until
+      bind there
+      source desk
+      mode text
+      rect [0, 0, 1920, 60]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Activities]]
+    max 90
+    pause 5
+
+
+# THE WELCOME WINDOW IS DISMISSED WITH ESCAPE RATHER THAN A CLICK AT ITS BUTTON. Two reasons, both
+# measured elsewhere in this repository: a click has to know where the button is on a window that may
+# not have finished drawing, and on this GNOME the dialog answers `esc` (nixos' stage closes the same
+# kind of window that way after three clicks at Skip's own coordinates did nothing).
+step "close the welcome window"
+  input esc
+  settle 3
+
+step "and anything it left behind"
+  input esc
+  settle 3
+
+
+# A TERMINAL, THEN THE TWO COMMANDS ANDUINOS' OWN SUITE USES.
+#
+# `ctrl+alt+t` is the chord the KDE distributions in this repository use; on GNOME it is not bound by
+# default, which is why this stage also has the launcher path below it as a fallback in the nixos
+# file's shape. AnduinOS 2.0.6's desktop is GNOME, so the launcher is the one that will work.
+step "open the launcher"
+  input meta_l
+  settle 5
+
+step "search for a terminal"
+  input text "terminal"
+  settle 5
+
+step "start it"
+  input ret
+  settle 20
+
+
+# NO `terminal_wait:` ON THESE STEPS, AND THAT IS THE FIX RATHER THAN AN OMISSION.
+# `terminal_wait:` opens a terminal of its own (ctrl+alt+t) and then types, so a step that already
+# has one uses `terminal_wait 0` to say "type into the window that is there".
+step "keep the screen on and unlock sudo"
+  run "xset s off; xset s noblank; printf '%s\n' {{ password }} | sudo -S -v"
+  settle 8
+  terminal_wait 0
+
+
+# THE HOST KEYS FIRST. Without them sshd starts and refuses every client with the handshake error
+# above, which reads like a credentials problem and is not one.
+step "generate the host keys the installer did not"
+  run "sudo -S ssh-keygen -A"
+  settle 10
+  terminal_wait 0
+
+
+step "enable and start sshd"
+  run "sudo -S systemctl enable --now ssh.service"
+  settle 12
+  terminal_wait 0
+
+
+step "the unit says it is running"
+  run "systemctl is-active ssh.service"
+  settle 6
+  terminal_wait 0
+
+
+# THREE CLAIMS, EACH A DIFFERENT KIND OF PROOF, AND THE SECOND IS THE ONE THE PIPELINE NEEDS.
 step "sshd answers for the installer's account"
   repeat
     until machine_ssh
