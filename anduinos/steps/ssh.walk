@@ -184,6 +184,24 @@ step "does the account take its password"
   terminal_wait 0
 
 
+# THE GUEST ASKS ITSELF, AND ITS OWN ANSWER IS THE ONE THAT MATTERS.
+#
+# MEASURED on run 45676383288: the console printed `3` host keys, `vmuser` as the effective user, the
+# `vmuser` passwd entry, and `SUDO_OK` - so every server-side condition this stage could think of is
+# satisfied, sshd is `active`, and the daemon still reports `ssh_ready="false"` with
+# `present=true` (the port answers).
+#
+# `SUDO_OK` AND A REFUSED SSH PASSWORD TOGETHER MEAN PAM DIVIDES ON THE TWO PATHS. `sudo` reads
+# `/etc/pam.d/sudo`; sshd reads `/etc/pam.d/sshd`, which on Ubuntu carries `pam_nologin`, account
+# expiry, and `@include common-auth` in an order sudo's does not. So the guest's own `ssh` is asked,
+# with `SSH_ASKPASS` supplying the password - the same technique AnduinOS' acceptance suite uses for
+# exactly this question - and its stderr is what names the refusal.
+step "the guest asks its own sshd, and says what it answers"
+  run "printf '#!/bin/sh\\nprintf \"%s\\\\n\" {{ password }}\\n' > /tmp/ap.sh; chmod +x /tmp/ap.sh; SSH_ASKPASS=/tmp/ap.sh SSH_ASKPASS_REQUIRE=force DISPLAY=:0 ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAuthentication=no -o NumberOfPasswordPrompts=1 {{ user }}@127.0.0.1 'id -un' 2>&1 | tail -5"
+  settle 15
+  terminal_wait 0
+
+
 # THREE CLAIMS, EACH A DIFFERENT KIND OF PROOF, AND THE SECOND IS THE ONE THE PIPELINE NEEDS.
 step "sshd answers for the installer's account"
   repeat

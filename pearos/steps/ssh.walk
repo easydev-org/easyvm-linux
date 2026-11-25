@@ -407,6 +407,20 @@ step "the console asks for a login"
     pause 4
 
 
+# A KEY PRESS FIRST, BECAUSE A VIRTUAL CONSOLE THAT HAS JUST BEEN SWITCHED TO TAKES NO TEXT.
+#
+# MEASURED on run 45676355385: `typed 6 character(s)` for the account and again for the password, and
+# the recording stays on `pearOS-machine login: _` for the whole budget - the keys reached the emulated
+# keyboard and the VT never consumed them. The local run of the same file logged in, so the difference
+# is timing: `ctrl+alt+f3` returns before the console's keyboard is attached to the emulated device.
+#
+# `ret` IS THE SAFE WAKE KEY: on a `login:` prompt an empty Return redraws the prompt (a username of
+# nothing is refused locally by agetty, which asks again) and it costs no character in the field. `spc`
+# would have been a username character and `login:  vmuser` is not the account.
+step "wake the console's keyboard"
+  input ret
+  settle 4
+
 step "the account name"
   input text "{{ user }}"
   settle 3
