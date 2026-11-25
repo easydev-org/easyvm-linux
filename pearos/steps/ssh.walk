@@ -382,90 +382,89 @@ step "the greeter is up"
 #
 # THE AVATAR IS CLICKED RATHER THAN `ret` PRESSED because that is the path the local run proved; the
 # keyboard path was tried in the last two CI runs and both ended on `Login failed` as well.
-step "pick the account"
-  input 960 880
-  settle 15
-
-step "type the password into an emptied field"
-  input text "{{ password }}"
-    at 960 942
-    clear true
-  settle 5
-
-step "submit the password"
-  input ret
-  settle 30
-
-# AND ONCE MORE, BECAUSE A GREETER THAT DID NOT SEE THE FIRST PRESS LEAVES THE BOX FOCUSED AND EMPTY -
-# the second pass then types into a field that is ready for it, which is exactly the case `clear:`
-# makes safe to repeat.
-step "the password again, for a press the display manager may not have taken"
-  input text "{{ password }}"
-    at 960 942
-    clear true
-  settle 4
-
-step "submit it again"
-  input ret
-  settle 30
+step "leave the greeter for a console"
+  input ctrl+alt+f3
+  settle 12
 
 
-# THE DESKTOP, AND ITS OWN WITNESS IS THE MENU BAR. pearOS draws `Welcome File Edit View Go Window Help`
-# along the top left, and the `pearOS NiceC0re` window that opens on first login has its own title bar -
-# neither exists on the greeter, so this cannot pass early.
-step "the desktop is up"
+step "the console asks for a login"
   repeat
     do
       item
-        settle 5
+        settle 4
       item "read the screen"
         read
-          name desk
+          name tty
     until
       bind there
-      source desk
+      source tty
       mode text
-      rect [0, 0, 700, 40]
+      rect [0, 0, 900, 1080]
       rect_at [1920, 1080]
       scale 2
-      words [[File, Edit, View]]
-    max 120
-    pause 5
+      words [[login]]
+    max 40
+    pause 4
 
 
-step "open the terminal"
-  input ctrl+alt+t
-  settle 20
+step "the account name"
+  input text "{{ user }}"
+  settle 3
+
+step "submit the name"
+  input ret
+  settle 4
+
+step "the password on the console"
+  input text "{{ password }}"
+  settle 3
+
+step "submit the password"
+  input ret
+  settle 15
 
 
-# NO `xset` HERE, BECAUSE THIS DESKTOP HAS NONE. MEASURED by hand: the command answered
+# THE PROMPT AFTER A SUCCESSFUL LOGIN CARRIES THE ACCOUNT AND THE HOST, which is proof the kernel
+# accepted the password - the thing SDDM would not do.
+# THE PROMPT IS READ AS TWO FIXED WORDS, NOT AS THE ACCOUNT NAME.
 #
-#	zsh: no such file or directory: /usr/bin/xset
+# MEASURED on the local run: the reader returns `[umuser@pear0S-machine` for the prompt - it draws `v`
+# as `[`, `O` as `0` and `S` as `5` in this bitmap console font - so a check for `vmuser` can never pass
+# on a screen where the login DID succeed. The greeting above the prompt and the `@` in the prompt are
+# what the reader gets right, and both appear only after the password is accepted:
 #
-# twice, because pearOS runs KDE on Wayland and `xset` is an X11 tool that the medium does not install.
-# endeavouros and kubuntu keep their screens awake with it and they are X11 sessions; copying that line
-# here would send two errors into the terminal on every run and change nothing.
-#
-# THE SCREEN IS KEPT AWAKE WITH systemd INSTEAD, which every systemd Arch has: `systemd-inhibit` holds
-# the idle lock for the length of the command that follows it, so a small sleep is held open and the
-# session cannot blank while this stage types.
-#
-# `sudo -S -v` STILL GOES FIRST: it validates the password once, and every later `sudo` in this stage
-# then runs without one. endeavouros' comment is the measurement for why - a password inside each long
-# command turned a dropped keystroke into `sudo: authentication failure` ten minutes later.
-step "validate the password and hold the idle lock open"
-  run "printf '%s\n' {{ password }} | sudo -S -v && systemd-inhibit --what=idle sleep 3600 &"
-  settle 10
-  terminal_wait 0
+#	Welcome to pearOS NiceC0re!
+#	[vmuser@pearOS-machine ~]$
+step "the console is a shell for the wizard's account"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name sh
+    until
+      bind there
+      source sh
+      mode text
+      rect [0, 40, 700, 160]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Welcome, to, pearOS]]
+    max 40
+    pause 4
 
 
-# THE ARCH STOCK sshd_config NEEDS NO EDIT FOR A PASSWORD LOGIN. `PasswordAuthentication` is commented
-# out at its compiled default of `yes`; only `PermitRootLogin` is narrowed, and this stage never logs in
-# as root. endeavouros has to write `99-vm.conf` because its medium ships a config that turns password
-# authentication off - pearOS does not, so writing one here would be copying a fix for a different
-# distribution's fault.
+# SSH IS TURNED ON FROM THE CONSOLE THAT JUST LOGGED IN, WHICH IS THE WHOLE REASON FOR IT.
+#
+# pearOS ships openssh and leaves `sshd.service` disabled - there is no `Remote Login` panel, and macOS'
+# switch has no equivalent here. `systemctl enable --now sshd` is the operation, and it needs root: the
+# console session is the wizard's account, which `post_setup` put in `wheel` and gave a sudoers line.
+#
+# THE PASSWORD IS PIPED IN because `sudo -S` reads it from stdin and a `run:` has none - measured on
+# AnduinOS' stage, where the same mistake left both commands waiting for a password that never came.
 step "start sshd now and at every boot"
-  run "sudo -S systemctl enable --now sshd"
+  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now sshd"
   settle 20
   terminal_wait 0
 

@@ -160,6 +160,30 @@ step "the unit says it is running"
   terminal_wait 0
 
 
+# THE THREE FACTS THAT DECIDE WHETHER SSHD CAN AUTHENTICATE ANYONE, ASKED IN THE GUEST.
+#
+# Three runs have now ended on `ssh: unable to authenticate, attempted methods [none password], no
+# supported methods remain` with sshd `active` and `PasswordAuthentication yes` in place. That message
+# means the SERVER OFFERED NO METHOD THE CLIENT COULD USE, and there are exactly three ways a stock
+# Ubuntu sshd gets there:
+#
+#	no host keys		sshd starts, then refuses every client in this shape
+#	no such account		`vmuser` absent (this was the `vmvmuser` bug)
+#	PAM refuses the password	sshd offers `password`, the check fails, this message follows
+#
+# THE CONSOLE CAN ANSWER ALL THREE, so it does, and the answers go to the recording:
+step "what the server has to offer"
+  run "ls /etc/ssh/ssh_host_*_key 2>&1 | wc -l; id -un; getent passwd {{ user }} | cut -d: -f1"
+  settle 8
+  terminal_wait 0
+
+
+step "does the account take its password"
+  run "printf '%s\\n' {{ password }} | sudo -S -v && echo SUDO_OK"
+  settle 8
+  terminal_wait 0
+
+
 # THREE CLAIMS, EACH A DIFFERENT KIND OF PROOF, AND THE SECOND IS THE ONE THE PIPELINE NEEDS.
 step "sshd answers for the installer's account"
   repeat
