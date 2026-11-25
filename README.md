@@ -9,7 +9,6 @@ Walkthroughs, reference images and CI for **Linux** guests, driven by
 |---|---|
 | `ubuntu/` | Ubuntu Desktop |
 | `mint/` | Linux Mint |
-| `fedora-workstation/` | Fedora Workstation |
 | `kubuntu/` | Kubuntu |
 | `manjaro/` | Manjaro |
 | `mx/` | MX Linux |
