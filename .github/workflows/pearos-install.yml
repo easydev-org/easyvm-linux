@@ -1,0 +1,60 @@
+name: pearos
+
+# THE FULL INSTALL, ONE STAGE: it boots the pearOS medium, answers the NiceC0re wrapper's two extra
+# pages (Language, then the Recovery chooser), walks Calamares from Welcome to `All done.`, and
+# publishes the disk as `linux-pearos`.
+#
+# THIS DISTRIBUTION HAS NO `Users` PAGE. Its account is created on first boot, which is why there is no
+# ssh leg here: an ssh stage would need a first-boot step that no other medium in this repository has.
+#
+# `concurrency:` IS PER WORKFLOW, so dispatching `ubuntu` cannot cancel `ghostbsd` or `windows`. A single
+# file holding every stage meant DISPATCHING A LINUX FIX CANCELLED A RUNNING WINDOWS INSTALL - measured,
+# forty minutes of one thrown away. The group exists to stop two runs fighting over one machine, and a
+# matrix leg is not one machine: every leg gets its own runner.
+#
+# AND THE MECHANISM IS NOT COPIED. The container options, the device probes, the pull, the daemon and
+# the follow loop live once in `stage.yml`, called with `workflow_call`. easydiskbake's 26 workflows
+# repeat the same container stanza 23 times; that is the duplication this avoids.
+
+on:
+  # ONE STAGE, DISPATCHED BY HAND. Every other distribution here was split from a single workflow where
+  # `needs:` decided the order; pearOS arrives already split, because it has no ssh leg to order after.
+  workflow_dispatch:
+    inputs:
+      disks_repository:
+        description: "the ghcr repository that holds the disks"
+        default: "easydev-org/easyvm-linux"
+
+concurrency:
+  group: pearos-install
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  checks: write
+
+jobs:
+  install:
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.4
+    secrets: inherit
+    with:
+      image_repository: easydev-org/easyvm
+      image_tag: v0.0.4
+      disk_gb: "40"
+      group: pearos-install
+      disks_repository: ${{ inputs.disks_repository }}
+      stages: |
+        [
+          {
+            "name": "linux-pearos-install",
+            "file": "pearos/steps/install.walk",
+            "pull": "",
+            "assets": [
+              "iso-pearos:pearos.iso.tar"
+            ],
+            "out": "linux-pearos.qcow2",
+            "publish": "linux-pearos",
+            "timeout": 90
+          }
+        ]

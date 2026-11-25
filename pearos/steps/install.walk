@@ -1,0 +1,251 @@
+walkthrough "pearos - the NiceC0re installer, on ext4"
+resolution 1920x1080
+recording_resolution 1920x1080
+var out
+  default out/distro.qcow2
+  from args.out
+
+# NO `password` AND NO `user` HERE, AND THAT IS NOT AN OMISSION. Every other Linux walk declares both
+# because its installer asks for them; this one has no account page at all, so declaring a password
+# would name a credential nothing on the disk holds. The account is created by pearOS on first boot.
+
+
+# pearOS IS A CALAMARES INSTALLER, BUT IT REACHES IT THROUGH TWO PAGES NO OTHER CALAMARES MEDIUM HERE
+# HAS, AND ITS CALAMARES HAS NO `Users` PAGE AT ALL.
+#
+# MEASURED by driving the whole install by hand to `All done. / 100%`, on a 40 GiB disk:
+#
+#	desktop          click `Install pearOS`
+#	Language         the wrapper's own page, English preselected, an ARROW bottom-right
+#	Recovery         a macOS-style chooser: `Restore from Time Machine`, `Install pearOS NiceC0re`,
+#	                 `Web Browser`, `GParted`, and a `Continue` button
+#	Welcome          Calamares begins here
+#	Location         Asia/Tokyo preselected
+#	Keyboard         English (US)/Default preselected
+#	Partitions       NOTHING is selected, so Next is disabled until `Erase disk` is chosen
+#	Summary          ext4 is the default file system - the partition table it drew was
+#	                 300 MiB FAT32 (EFI) + 39.71 GiB ext4, no swap
+#	Install          5 -> 11 -> 19 -> 58 -> 75 -> 88 -> 100%, about nine minutes
+#	Finish          `All done.` and a `Done` button
+#
+# THERE IS NO USER PAGE. The account is created by pearOS on first boot, which is why this walk has no
+# user form to fill - and why the ssh stage is a separate question rather than a formality.
+
+
+step "the media this stage boots from is already on disk"
+  needs [pearos.iso]
+
+
+# FORTY GIB, WHICH IS THE SIZE THE HAND RUN USED AND THE SIZE THE SUMMARY REPORTED BACK.
+step "create the empty disk"
+  disk
+    file disk.qcow2
+    size 40
+
+
+step "boot the installer"
+  boot
+    machine "q35,accel=kvm,vmport=off"
+    args [["-cpu", "Skylake-Client-v4"], ["-smp", "4"], ["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=pearos.iso,media=cdrom,readonly=on,if=none,id=media0"], ["-device", "ide-cd,drive=media0,bootindex=0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=1"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+    timeout 1800
+
+
+# THE LIVE SESSION LANDS ON A DESKTOP AND OPENS ITS OWN WELCOME WINDOW - there is no greeter to answer.
+# `Welcome` is the window's own title, and it is the first word of every frame once the panel is up.
+step "the live session is at its desktop"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name screen
+    until
+      bind up
+      source screen
+      mode text
+      rect [0, 0, 1920, 60]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Welcome]]
+    max 180
+    pause 4
+
+
+step "open the installer, which is the welcome window's first button"
+  input 893 322
+  settle 25
+
+
+# THE WRAPPER'S LANGUAGE PAGE. ITS `Next` IS AN ARROW IN THE BOTTOM-RIGHT CORNER, NOT A WORDED BUTTON.
+step "the installer's language page"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name lang
+    until
+      bind there
+      source lang
+      mode text
+      rect [700, 380, 1250, 620]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Language]]
+    max 60
+    pause 3
+
+
+step "take English, which is already selected"
+  input 1345 845
+  settle 20
+
+
+# THE RECOVERY CHOOSER. `Install pearOS NiceC0re` IS THE SECOND ROW AND `Continue` IS THE BUTTON.
+#
+# MEASURED: choosing the row only moves the highlight; the button is what acts, and the row that is
+# already highlighted on arrival is `Restore from Time Machine` - so a walk that pressed Continue
+# without choosing first would wipe nothing and install nothing.
+step "the recovery chooser"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name rec
+    until
+      bind there
+      source rec
+      mode text
+      rect [700, 320, 1240, 830]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Install, pearOS], [Restore, from, Time, Machine]]
+    max 90
+    pause 3
+
+
+step "choose Install pearOS NiceC0re"
+  input 970 481
+  settle 6
+
+
+step "continue into Calamares"
+  input 1179 797
+  settle 30
+
+
+# FROM HERE IT IS CALAMARES, SO THE SAME QUESTION EVERY OTHER CALAMARES WALK ASKS: IS THE WIZARD UP?
+step "Calamares is up"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name cal
+    until
+      bind up
+      source cal
+      mode text
+      rect [600, 60, 1330, 120]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Welcome, to, the, pearOS, installer]]
+    max 90
+    pause 3
+
+
+step "welcome - next"
+  input 1777 933
+  settle 18
+
+
+step "location - the map already picked a zone"
+  input 1777 933
+  settle 18
+
+
+step "keyboard - English (US) is already the layout"
+  input 1777 933
+  settle 30
+
+
+# THE PARTITIONS PAGE ARRIVES WITH NOTHING SELECTED, AND ITS Next IS DISABLED UNTIL THE DISK IS TOLD
+# WHAT TO DO. MEASURED on that frame: the radio beside `Erase disk` is empty and the pill reads
+# (47,47,47); after the click the radio fills and ext4 appears as the chosen file system.
+step "partitions - choose erase disk"
+  input 20 104
+  settle 8
+
+
+step "partitions - next"
+  input 1777 933
+  settle 25
+
+
+# THE SUMMARY IS WHERE THE FILE SYSTEM IS CONFIRMED RATHER THAN ASSUMED. It drew
+# `300.00 MiB FAT32` (EFI) and `39.71 GiB ext4` (root), which is what this repository wants and what
+# the medium defaults to - so nothing needs changing here, and the step only has to press Install.
+step "summary - install"
+  input 1757 933
+  settle 30
+
+
+# THE INSTALL ITSELF, WHICH IS A PROGRESS LINE RATHER THAN A PAGE TO ANSWER. Its last caption is
+# `Done` and its bar reads `100%`.
+step "the install runs to a hundred per cent"
+  repeat
+    do
+      item
+        settle 15
+      item "read the screen"
+        read
+          name progress
+    until
+      bind done
+      source progress
+      mode text
+      rect [0, 855, 1920, 880]
+      rect_at [1920, 1080]
+      scale 1
+      words [[Done]]
+    max 200
+    pause 10
+
+
+step "finish - all done"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name fin
+    until
+      bind there
+      source fin
+      mode text
+      rect [700, 380, 1240, 500]
+      rect_at [1920, 1080]
+      scale 1
+      words [[All, done]]
+    max 40
+    pause 3
+
+
+step "dismiss the finished installer"
+  input 1862 933
+  settle 15
+
+
+step "stop the machine"
+  stop kill
+  timeout 120
+
+
+step "publish the disk"
+    save "{{ out }}"

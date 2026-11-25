@@ -92,6 +92,29 @@ while [ "$attempt" -lt "$attempts" ]; do
         echo "=== attempt $attempt/$attempts: from the start" >&2
     fi
 
+    # A SIGNED URL THAT EXPIRES IN FOUR HOURS CANNOT BE THE THING THIS SCRIPT HOLDS ON TO.
+    #
+    # MEASURED on pearOS, whose CDN refuses an unsigned request with a 295-byte body that reads
+    # `This download link is not signed or has expired` - and whose signature is minted by a public
+    # endpoint that answers `{"url": "...?exp=...&sig=...&tier=free"}` for a file name. A 17-minute
+    # transfer outlives nothing, but a RE-RUN of this job tomorrow certainly outlives the four hours
+    # the signature is good for, so a URL baked into the catalogue row would be dead by then.
+    #
+    # SO THE ROW NAMES THE UNSIGNED PATH AND THIS REFRESHES THE SIGNATURE BEFORE EACH ATTEMPT. Every
+    # other row is untouched: the refresh only runs for a host that has this endpoint.
+    case "$url" in
+        *iso.pearos.xyz/*)
+            file=$(printf '%s' "${url%%\?*}" | sed 's|.*/||')
+            fresh=$(curl -fsS --max-time 30 -X POST -H 'Content-Type: application/json' \
+                      -d "{\"file\":\"$file\"}" https://iso.pearos.xyz/freepoint 2>/dev/null |
+                    sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
+            if [ -n "$fresh" ]; then
+                url=$fresh
+            else
+                echo "  could not refresh the pearOS signature; using the URL as given" >&2
+            fi
+            ;;
+    esac
     # NO `--max-time`: it limits the WHOLE transfer, so it ends a 7.2 GiB download at the number
     # whatever the speed. The connect timeout guards a dead mirror. `--retry` IS STILL HERE and is now
     # harmless: it retries within one attempt, and whichever way it ends the file on disk keeps what
