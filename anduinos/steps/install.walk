@@ -148,9 +148,23 @@ step "page 7 - full name"
   settle 3
 
 
+# `clear: true`, BECAUSE THIS FIELD ARRIVES PRE-FILLED AND THE RESULT WAS A DIFFERENT ACCOUNT.
+#
+# MEASURED on the published disk: the account is `vmvmuser`, not `vmuser` - the prompt reads
+# `vmvmuser@vmvmuser-desktop-c6da` - so the installer's username box held a `vm` before this step
+# typed into it and `click at` alone appends. `clear:` selects all and deletes first, which is the
+# field's own way of saying "replace what is there".
+#
+# THIS IS THE BUG THAT MADE EVERY `ssh:` IN THE SSH STAGE FAIL WITH
+#
+#	ssh: handshake failed: unable to authenticate, attempted methods [none password]
+#
+# against a machine whose `PasswordAuthentication yes` and whose sshd was `active` - the daemon dialed
+# `vmuser` and the account was `vmvmuser`.
 step "page 7 - username"
   input text "{{ user }}"
     at 960 520
+    clear true
   settle 3
 
 

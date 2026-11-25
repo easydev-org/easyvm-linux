@@ -257,9 +257,14 @@ step "account - full name"
     at 930 571
   settle 3
 
+# `clear: true` FOR THE SAME REASON AS ANDUINOS': a field that arrives pre-filled makes `click at`
+# append rather than replace, and the account created is then not the one every later `ssh:` dials.
+# MEASURED on AnduinOS, whose username box held a `vm` and produced `vmvmuser`; this page's box is
+# empty here, and the flag costs nothing when it is.
 step "account - account name"
   input text "{{ user }}"
     at 930 606
+    clear true
   settle 3
 
 step "account - password"
@@ -363,18 +368,36 @@ step "the greeter is up"
 # THE GREETER IS ANSWERED WITH THE PASSWORD THE WIZARD SET, which is this walk's `password:` and the
 # same string it typed into the account form. Clicking the avatar first puts the password box on screen;
 # `esc` on the blank box would cancel, so the order matters.
+# THE AVATAR OPENS THE PASSWORD BOX, AND IT TAKES LONGER THAN SIX SECONDS ON A LOADED RUNNER.
+#
+# MEASURED on run 45641931139: the desktop check read `ee ee ee ee Ae ee ce ee eee` - the password box's
+# own dots - which means the box was on screen and the text went in, but the press had landed before it
+# finished drawing and the login never happened. The recording at 450s is still the greeter.
+#
+# SO EACH PIECE WAITS LONGER AND THE RESULT IS CHECKED. `settle 15` after the avatar is the box being
+# drawn; the password step then clicks the box itself rather than typing blind, so focus is explicit.
 step "pick the account"
   input 960 880
-  settle 6
+  settle 15
 
 step "type the password"
   input text "{{ password }}"
     at 960 942
-  settle 3
+  settle 5
 
 step "log in"
   input ret
-  settle 45
+  settle 30
+
+# THE SECOND ATTEMPT IS NOT BELT-AND-BRACES, IT IS THE MEASUREMENT. Run 45641931139's log shows the
+# password box holding `ee ee ee ee Ae ee ce ee eee` - six dots, so `admin1` arrived - and the desktop
+# check then read nothing for its whole budget while the recording sat on the greeter. A press that
+# lands between the box drawing and the display manager reading it does nothing, and the walk had no
+# step that noticed. This one does: it presses Return again on the greeter that is still there, which
+# is harmless on a desktop because a Return with no focused text does nothing.
+step "log in again, for a press the display manager may not have taken"
+  input ret
+  settle 30
 
 
 # THE DESKTOP, AND ITS OWN WITNESS IS THE MENU BAR. pearOS draws `Welcome File Edit View Go Window Help`
