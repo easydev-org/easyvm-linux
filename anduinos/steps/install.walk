@@ -69,10 +69,18 @@ step "the installer window is up"
       bind up
       source screen
       mode text
-      rect [520, 230, 1420, 350]
+      rect [500, 600, 1440, 730]
       rect_at [1920, 1080]
       scale 1
-      words [[Welcome, to, AnduinOS], [Keyboard, Layout], [Updates, and, Drivers]]
+      # THE INK IS THE PAGE'S OWN HEADING, AND THE FIRST RECT WAS THE WINDOW'S TITLE BAR.
+      #
+      # MEASURED on run 45575652440, which spent its whole 180-attempt budget here while the installer
+      # sat on page 1 looking exactly right. `rect [520, 230, 1420, 350]` is the strip that holds
+      # `AnduinOS Installer` - the window's border text - and the OCR inside it returned `ystem`, `0
+      # word(s)`, and once `ayyall Arabic E46 1.9)`, which is the LANGUAGE LIST bleeding in from below.
+      # The page's heading is at y 632..704, and read from there the medium answers `Welcome to
+      # AnduinOS` on every frame.
+      words [[Welcome, to, AnduinOS]]
     max 180
     pause 4
 
