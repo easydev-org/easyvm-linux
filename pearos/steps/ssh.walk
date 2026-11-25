@@ -60,33 +60,34 @@ step "boot the installed disk"
     timeout 900
 
 
-# THE WIZARD OPENS ON `hello`, WHICH IS A SINGLE `Continue` BUTTON UNDER A LARGE HAND-DRAWN WORD.
+# THE WIZARD OPENS ON `hello`, WHICH IS ONE BUTTON UNDER A LARGE HAND-DRAWN WORD - AND THAT BUTTON IS
+# NOT A RELIABLE OCR TARGET.
 #
-# The word is drawn as an SVG stroke that animates in over four seconds, so its bounding box is where
-# the eye lands but the button is what has to be pressed. The check reads the button's own label.
-step "the hello page"
-  repeat
-    do
-      item
-        settle 5
-      item "read the screen"
-        read
-          name hello
-    until
-      bind there
-      source hello
-      mode text
-      rect [880, 850, 1060, 950]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Continue]]
-    max 60
-    pause 3
-
-
-step "hello - continue"
-  input 970 900
-  settle 8
+# MEASURED across three runs: the pill is x 940..1045, y 870..930, white on a saturated blue field, and
+# the reader returned nothing for it at `scale 1`, `scale 2`, and for both a tight crop and a wide one.
+# The word is drawn as thin dark glyphs on a 90-pixel-tall rounded pill, which is the hardest thing on
+# this screen to read and the only thing that matters.
+#
+# SO THIS STEP DOES NOT READ: IT PRESSES. The page has exactly one action, the click is idempotent
+# while the page is up (a second press on the next page is a click on empty background), and the next
+# step's own heading check is what proves the press worked. That is a stronger proof than a word on a
+# button, because it is the wizard's real state rather than a picture of its label.
+#
+# THE CLICKS ARE SPACED AND REPEATED because the stroke animation takes four seconds: the button is in
+# the DOM from the first frame, and the press is safe even while the word is still being drawn.
+# ONCE, NOT TWICE. MEASURED: pressing it twice ended on this same `hello` page again - the second press
+# landed on the language page's back-arrow corner and walked the wizard backwards. One press and a long
+# settle is what the hand run did.
+# THE PRESS IS A BARE PAIR - `input <x> <y>` - which is the form every other walk in this repository
+# uses for a click (`input 1777 933` in pearos' own install.walk). `input click [...]` is READ AS A KEY
+# NAME by the parser and refused, so the pair is the only spelling that reaches the pointer.
+#
+# TWENTY SECONDS OF SETTLE, NOT SIX: the stroke draws for four seconds and the page's own transition is
+# half a second, and a press landing during either is a press on a page that is about to be replaced.
+# The hand run waited twenty and the language page was always there when it came back.
+step "hello - press continue"
+  input 990 900
+  settle 20
 
 
 # THE WIZARD'S OWN SCREENS, EACH A HEADING AND A `Continue`. The headings are the checks because they
@@ -103,15 +104,25 @@ step "the language page"
       bind there
       source lang
       mode text
-      rect [400, 250, 1500, 400]
+      rect [740, 455, 1160, 500]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Select, Your, Language]]
     max 60
     pause 3
 
-step "language - continue, American English is first"
-  input 960 930
+# THE LIST MUST BE CLICKED, NOT ASSUMED. MEASURED: pressing Continue with nothing selected raises
+# `You must select one language from the list` and stays on the page - the first row is not preselected
+# even though the widget draws a highlight on it. `English (United States)` is the sixth row.
+#
+# AND `Continue` IS NOT AT THE BOTTOM OF THE SCREEN: the wizard is a centred card and its button sits at
+# the card's lower-right corner, (1300, 817). A click at the screen's bottom edge misses it entirely.
+step "language - choose English (United States)"
+  input 960 618
+  settle 3
+
+step "language - continue"
+  input 1300 817
   settle 8
 
 
@@ -127,15 +138,19 @@ step "the keyboard page"
       bind there
       source kmap
       mode text
-      rect [400, 250, 1500, 400]
+      rect [740, 455, 1180, 500]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Select, Your, Keyboard, Layout]]
     max 60
     pause 3
 
-step "keyboard - continue, US is first"
-  input 960 930
+step "keyboard - choose US"
+  input 960 518
+  settle 3
+
+step "keyboard - continue"
+  input 1300 817
   settle 8
 
 
@@ -151,15 +166,19 @@ step "the time zone page"
       bind there
       source tz
       mode text
-      rect [400, 250, 1500, 400]
+      rect [740, 455, 1160, 500]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Select, Your, Time, Zone]]
     max 60
     pause 3
 
+step "time zone - choose UTC"
+  input 960 576
+  settle 3
+
 step "time zone - continue"
-  input 960 930
+  input 1300 817
   settle 8
 
 
@@ -183,7 +202,7 @@ step "the account page"
       mode text
       rect [400, 200, 1500, 400]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Create, a, Computer, Account]]
     max 60
     pause 3
@@ -191,28 +210,32 @@ step "the account page"
 # ONE `input` PER STEP, AND `at` IS THE FIELD'S CENTRE: the verb clicks there, selects all and deletes
 # before typing, so a field that already holds text (the hostname's `pearOS-machine`) arrives empty
 # rather than appended to.
+# THE FIVE FIELDS AND THEIR MEASURED CENTRES. The hostname arrives pre-filled with `pearOS-machine`
+# and is left alone; the password pair is what `post_setup` hands to `chpasswd`, so these two must
+# match or the wizard's own `Passwords match` tick never appears and Continue stays grey with a red
+# no-entry badge.
 step "account - full name"
   input text "VM User"
-    at 960 430
+    at 930 571
   settle 3
 
 step "account - account name"
   input text "{{ user }}"
-    at 960 490
+    at 930 606
   settle 3
 
 step "account - password"
   input text "{{ password }}"
-    at 800 700
+    at 886 725
   settle 3
 
 step "account - verify password"
   input text "{{ password }}"
-    at 1100 700
+    at 1120 725
   settle 4
 
 step "account - continue"
-  input 960 930
+  input 1300 817
   settle 6
 
 
@@ -230,13 +253,13 @@ step "the appearance page"
       mode text
       rect [400, 200, 1500, 400]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Choose, Your, Look]]
     max 60
     pause 3
 
 step "appearance - continue, light is selected"
-  input 960 930
+  input 1300 817
   settle 6
 
 
@@ -254,28 +277,71 @@ step "the agreement page"
       mode text
       rect [400, 200, 1500, 400]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Terms, and, Conditions]]
     max 60
     pause 3
 
 step "agreement - continue"
-  input 960 930
+  input 1300 817
   settle 6
 
 
-# `FINISH` IS NOT A BUTTON: THE PAGE RUNS `post_setup` ITSELF and closes its own window when the script
-# reports success. So the check here is the DESKTOP, not a word on the page - the wizard's `welcome`
-# animation and the KDE desktop are the two things that tell the script's success from its failure.
+# `FINISH` IS NOT A BUTTON: THE PAGE RUNS `post_setup` ITSELF and quits its own window when the script
+# reports success. So what this waits for is the script, and the script ends on a GREETER, not a desktop.
 #
-# `post_setup` creates the account, schedules the removal of `default`, sets the keymap and timezone,
-# and rewrites sudoers; the page shows its log while it runs, and on failure draws the error in place
-# of the desktop. Ten minutes is generous for a script whose own units are seconds, and it is bounded
-# because an installer that hangs here would otherwise hang the stage.
-step "post_setup runs and the window closes"
+# MEASURED by driving the whole wizard by hand: `post_setup` installs two packages, creates the account,
+# schedules the removal of `default`, sets keymap/timezone/sudoers, and the window disappears - leaving
+# SDDM with the new account's avatar and the caption `Touch ID or Enter Password`. pearOS does NOT
+# autologin the account the wizard made, even though the medium's `users.conf` says `doAutologin: true`:
+# that module never runs, because the Calamares sequence replaces the `users` page with these
+# shellprocess steps.
+#
+# SO THE GREETER IS THE WITNESS THAT THE SCRIPT FINISHED, and the next step answers it.
+step "post_setup runs and the session ends on a greeter"
   settle 300
 
 
+step "the greeter is up"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name greet
+    until
+      bind there
+      source greet
+      mode text
+      rect [700, 940, 1250, 1010]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Touch, ID, or, Enter, Password], [Enter, Password]]
+    max 180
+    pause 5
+
+
+# THE GREETER IS ANSWERED WITH THE PASSWORD THE WIZARD SET, which is this walk's `password:` and the
+# same string it typed into the account form. Clicking the avatar first puts the password box on screen;
+# `esc` on the blank box would cancel, so the order matters.
+step "pick the account"
+  input 960 880
+  settle 6
+
+step "type the password"
+  input text "{{ password }}"
+    at 960 942
+  settle 3
+
+step "log in"
+  input ret
+  settle 45
+
+
+# THE DESKTOP, AND ITS OWN WITNESS IS THE MENU BAR. pearOS draws `Welcome File Edit View Go Window Help`
+# along the top left, and the `pearOS NiceC0re` window that opens on first login has its own title bar -
+# neither exists on the greeter, so this cannot pass early.
 step "the desktop is up"
   repeat
     do
@@ -288,45 +354,37 @@ step "the desktop is up"
       bind there
       source desk
       mode text
-      rect [0, 0, 1920, 60]
+      rect [0, 0, 700, 40]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[File, Edit, View]]
     max 120
     pause 5
 
 
-# SSH IS NOT A SWITCH ON THIS SYSTEM, SO IT IS TURNED ON THE WAY ARCH TURNS IT ON - with the same
-# steps endeavouros and kubuntu use in their own ssh stages, because pearOS is Arch with KDE and those
-# two are the files that already drive a KDE terminal in this repository.
-#
-# `openssh` IS ALREADY INSTALLED - it is in the ISO's package list - so unlike endeavouros there is
-# nothing to `pacman -Sy`. What remains is the three things that stage does after its install:
-#
-#	1. open a terminal                    `input ctrl+alt+t`
-#	2. knocks the screen awake             `xset s off; xset s noblank`
-#	3. unlock sudo once, then enable       `printf '%s\n' <pw> | sudo -S -v`  then plain `sudo -S`
-#
-# THE PASSWORD GOES IN THROUGH `sudo -S -v` ONCE AND NOT INTO EVERY COMMAND. endeavouros' comment is
-# the measurement: a password inside each long command meant a dropped keystroke turned into a
-# `sudo: authentication failure` ten minutes later, with the password visible in the process list
-# besides.
-#
-# `terminal_wait 0` AFTER THE CHORD, WHICH IS NOT AN OMISSION. `terminal_wait:` OPENS A TERMINAL
-# (ctrl+alt+t) AND THEN TYPES, so leaving it at its default after this step's own chord would start a
-# SECOND window and send the command to that one while the first sat empty. That is measured in
-# endeavour's file as the kubuntu recording where `SCREEN_KEPT_ON` ran straight into `ECHO ADMIN`.
 step "open the terminal"
   input ctrl+alt+t
   settle 20
 
 
-# THE SCREEN IS KEPT AWAKE FIRST. A blanked screen takes no keys, and this stage waits ten minutes for
-# an install-like idle; `xset s off` alone is enough, and `-dpms` is left out because KDE answers
-# "server does not have extension for -dpms option" - harmless, but noise in the log.
-step "keep the screen on"
-  run "printf '%s\n' {{ password }} | sudo -S -v; /usr/bin/xset s off; /usr/bin/xset s noblank"
-  settle 8
+# NO `xset` HERE, BECAUSE THIS DESKTOP HAS NONE. MEASURED by hand: the command answered
+#
+#	zsh: no such file or directory: /usr/bin/xset
+#
+# twice, because pearOS runs KDE on Wayland and `xset` is an X11 tool that the medium does not install.
+# endeavouros and kubuntu keep their screens awake with it and they are X11 sessions; copying that line
+# here would send two errors into the terminal on every run and change nothing.
+#
+# THE SCREEN IS KEPT AWAKE WITH systemd INSTEAD, which every systemd Arch has: `systemd-inhibit` holds
+# the idle lock for the length of the command that follows it, so a small sleep is held open and the
+# session cannot blank while this stage types.
+#
+# `sudo -S -v` STILL GOES FIRST: it validates the password once, and every later `sudo` in this stage
+# then runs without one. endeavouros' comment is the measurement for why - a password inside each long
+# command turned a dropped keystroke into `sudo: authentication failure` ten minutes later.
+step "validate the password and hold the idle lock open"
+  run "printf '%s\n' {{ password }} | sudo -S -v && systemd-inhibit --what=idle sleep 3600 &"
+  settle 10
   terminal_wait 0
 
 

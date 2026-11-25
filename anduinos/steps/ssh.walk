@@ -84,7 +84,7 @@ step "the desktop is up"
       mode text
       rect [700, 580, 1250, 660]
       rect_at [1920, 1080]
-      scale 1
+      scale 2
       words [[Welcome, Home]]
     max 90
     pause 5
