@@ -125,22 +125,32 @@ step "start it"
 # `terminal_wait:` opens a terminal of its own (ctrl+alt+t) and then types, so a step that already
 # has one uses `terminal_wait 0` to say "type into the window that is there".
 step "keep the screen on and unlock sudo"
-  run "xset s off; xset s noblank; printf '%s\n' {{ password }} | sudo -S -v"
+  run "xset s off; xset s noblank 2>/dev/null; printf '%s\n' {{ password }} | sudo -S -v"
   settle 8
   terminal_wait 0
 
 
 # THE HOST KEYS FIRST. Without them sshd starts and refuses every client with the handshake error
 # above, which reads like a credentials problem and is not one.
+# `sudo -S` READS THE PASSWORD FROM STDIN, AND A `run:` HAS NO STDIN TO GIVE IT.
+#
+# MEASURED on run 45637800502: both of these steps logged their command and nothing else, `sshd`
+# stayed inactive, and the stage spent its whole fifteen-minute probe budget on `ssh_ready=false`
+# while the machine sat at a desktop. `sudo -S` without a pipe waits for a password that never
+# arrives, and the command it prefixes never runs.
+#
+# SO THE PASSWORD IS PIPED IN, WHICH IS WHAT EVERY OTHER LINUX STAGE HERE DOES (`printf '%s\n' <pw>
+# | sudo -S ...` in endeavouros' and nixos' files). The password is quoted so a shell metacharacter in
+# it stays part of the string.
 step "generate the host keys the installer did not"
-  run "sudo -S ssh-keygen -A"
-  settle 10
+  run "printf '%s\n' {{ password }} | sudo -S ssh-keygen -A"
+  settle 12
   terminal_wait 0
 
 
 step "enable and start sshd"
-  run "sudo -S systemctl enable --now ssh.service"
-  settle 12
+  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now ssh.service"
+  settle 15
   terminal_wait 0
 
 

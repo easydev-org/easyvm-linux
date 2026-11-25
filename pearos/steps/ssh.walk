@@ -78,6 +78,44 @@ step "boot the installed disk"
 # ONCE, NOT TWICE. MEASURED: pressing it twice ended on this same `hello` page again - the second press
 # landed on the language page's back-arrow corner and walked the wizard backwards. One press and a long
 # settle is what the hand run did.
+# THE WIZARD HAS TO BE ON SCREEN BEFORE THE PRESS, AND IN CI IT IS NOT.
+#
+# MEASURED on run 45637758644: `clicked (990, 900)` is logged IMMEDIATELY after `qemu started`, with not
+# one frame in between. The press landed while the guest was still booting, so the page never changed -
+# the log's language check then spent its whole budget reading `hello`'s strokes, and the recording's
+# last frames are black because the session blanked with nothing ever typed into it.
+#
+# THE HAND RUN NEVER SAW THIS because a person waits: the desktop is up and the wizard drawn before the
+# button is pressed. So the wait is made explicit here, and it is measured on the guest's own clock
+# rather than guessed - the same session was at `hello` by 60 seconds of recording.
+#
+# IT WAITS ON THE PICTURE, NOT THE CLOCK ALONE: `hello` is a large bright stroke on a saturated blue
+# field, and its word is drawn as a path so an OCR read of it is worthless (measured - the reader
+# returns tokens like `lO` and `4`). The brightness of the button's own pill is the stable signal, so
+# the wait asks for a frame with a bright region where the pill sits.
+step "wait for the wizard's first page to be drawn"
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name drawn
+    until
+      bind there
+      source drawn
+      # MEASURED ON A REAL FRAME (run 45637758644's recording at 60s): this inner box is the pill's own
+      # white fill and averages 229; the saturated blue field around it averages 102. The wider box
+      # that includes the pill's edge averages 127 and cannot tell the two apart, which is why the box
+      # is the fill and not the button.
+      mode mean_between
+      rect [960, 885, 1020, 915]
+      rect_at [1920, 1080]
+      range [180, 255]
+    max 90
+    pause 5
+
+
 # THE PRESS IS A BARE PAIR - `input <x> <y>` - which is the form every other walk in this repository
 # uses for a click (`input 1777 933` in pearos' own install.walk). `input click [...]` is READ AS A KEY
 # NAME by the parser and refused, so the pair is the only spelling that reaches the pointer.
