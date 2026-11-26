@@ -3,7 +3,7 @@ resolution 1920x1080
 recording_resolution 1920x1080
 # THE ACCOUNT THIS DISK HAS IS vmuservmuser - see ssh.walk. `user:` IS THE HEADER KEY THE SSH
 # CLIENT READS (internal/walk/walkfile.go:193 -> ssh_user), so it is the one that has to name it.
-user vmuservmuser
+user vmuser
 var boot_timeout
   default "1800"
   from args.boot_timeout
@@ -16,13 +16,32 @@ var hostname
 var out
   default out/vm-configure.qcow2
   from args.out
-password admin
+password admin1
+# THE ACCOUNT IS `vmuser`. Zorin's install already types `VM User` and `{{ user }}` into the two
+# ubiquity fields, so the pair is right; what was left behind is this file's old `user:` line, which
+# still named the doubled account the old install produced.
+#
+# `user:` IS THE HEADER KEY THE SSH CLIENT READS - `var user` IS NOT.
+user vmuser
+var boot_timeout
+  default "1800"
+  from args.boot_timeout
+var host
+  default 172.30.0.1
+  from args.host
+var hostname
+  default easyvm-vm
+  from args.hostname
+var out
+  default out/vm-configure.qcow2
+  from args.out
+password admin1
 # THE ACCOUNT THIS DISK HAS IS `vmuservmuser` - see the manjaro header for the measurement.
 #
 # ubiquity fills the username from the full name as it is typed, so its two `type:` steps
 # APPEND and the account is created with the value twice.
 var user
-  default vmuservmuser
+  default vmuser
   from args.user
 ssh_port 2222
 

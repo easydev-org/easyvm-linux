@@ -1,14 +1,18 @@
 walkthrough "linux-manjaro - sshd"
 resolution 1920x1080
 recording_resolution 1920x1080
-# THE ACCOUNT ON THIS DISK IS `vmuservmuser`, AND THAT IS WHAT HAS TO LOG IN.
+# THE ACCOUNT IS `vmuser`, AND THAT TOOK FIXING THE INSTALL RATHER THAN THIS STAGE.
 #
-# MEASURED ON RUN 44599025471: Calamares fills the login name from the full name as it is
-# typed, so the installer's second `type:` APPENDED to the field instead of replacing it and
-# the account was created as `vmuservmuser`. The ssh and vm stages then logged in as `vmuser`,
-# which does not exist - hence sudo asking for a password it could never accept.
+# MEASURED ON RUN 44599025471: Calamares fills the login name from the full name as it is typed, so
+# both fields carried `{{ user }}`, the second `type:` APPENDED to the field instead of replacing it,
+# and the disk was built with the account `vmuservmuser`. This stage then logged in as `vmuser`,
+# which did not exist, and sshd answered `unable to authenticate ... no supported methods remain`.
 #
-# The install is not being changed: this stage logs in as the account the disk actually has.
+# THE EARLIER ANSWER WAS TO LOG IN AS THE DOUBLED NAME - `user: vmuservmuser` here and in
+# vm-configure - which made three stages agree on a wrong account. The install now types `VM User`
+# into the full-name field and `{{ user }}` into the login name, so the account is `vmuser` again and
+# this file says so.
+#
 # `ssh_user` IS THE HEADER KEY THE SSH CLIENT READS - `var user` IS NOT.
 #
 # MEASURED ON RUN 44611943331 (manjaro), whose failure was NOT a refused port but
@@ -20,13 +24,13 @@ recording_resolution 1920x1080
 # step authenticate as `File.SSHUser`, which is parsed from a top-level `ssh_user:` key
 # (internal/walk/walk.go) and defaults to `vmuser`. Setting `var user` changes what gets TYPED on
 # the console; it does not change who the client logs in as.
-user vmuservmuser
+user vmuser
 var out
   default out/distro.qcow2
   from args.out
-password admin
+password admin1
 var user
-  default vmuservmuser
+  default vmuser
   from args.user
 
 

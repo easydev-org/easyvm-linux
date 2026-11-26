@@ -17,7 +17,7 @@ var locale
 var out
   default out/vm-configure.qcow2
   from args.out
-password admin
+password admin1
 var timezone
   default America/Los_Angeles
   from args.timezone

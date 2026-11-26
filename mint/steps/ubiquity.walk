@@ -1,7 +1,7 @@
 walkthrough "mint 22.3 cinnamon (ubiquity)"
 resolution 1920x1080
 recording_resolution 1920x1080
-password admin
+password admin1
 var user
   default vmuser
   from args.user

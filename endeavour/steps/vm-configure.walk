@@ -14,7 +14,7 @@ var hostname
 var out
   default out/vm-configure.qcow2
   from args.out
-password admin
+password admin1
 var user
   default vmuser
   from args.user

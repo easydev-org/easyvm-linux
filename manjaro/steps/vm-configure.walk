@@ -1,9 +1,13 @@
 walkthrough "linux-manjaro - configure the vm (name, share, guest agent)"
 resolution 1920x1080
 recording_resolution 1920x1080
-# THE ACCOUNT THIS DISK HAS IS vmuservmuser - see ssh.walk. `user:` IS THE HEADER KEY THE SSH
-# CLIENT READS (internal/walk/walkfile.go:193 -> ssh_user), so it is the one that has to name it.
-user vmuservmuser
+# THE ACCOUNT IS `vmuser` - see ssh.walk's header for the measurement. It was `vmuservmuser` while
+# the installer typed the same string into both the full-name and the login-name fields; the install
+# now types `VM User` and `{{ user }}`, so the doubled name is gone.
+#
+# `user:` IS THE HEADER KEY THE SSH CLIENT READS - `var user` IS NOT, and setting only the latter is
+# how a stage types one name on the console and authenticates as another.
+user vmuser
 var boot_timeout
   default "1800"
   from args.boot_timeout
@@ -16,10 +20,10 @@ var hostname
 var out
   default out/vm-configure.qcow2
   from args.out
-password admin
+password admin1
 # `vmuservmuser` IS THE ACCOUNT THIS DISK HAS - see ssh.walk's header for the measurement.
 var user
-  default vmuservmuser
+  default vmuser
   from args.user
 ssh_port 2222
 

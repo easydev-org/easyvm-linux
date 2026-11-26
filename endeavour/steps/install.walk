@@ -4,7 +4,7 @@ recording_resolution 1920x1080
 var out
   default out/endeavouros.qcow2
   from args.out
-password admin
+password admin1
 var user
   default vmuser
   from args.user

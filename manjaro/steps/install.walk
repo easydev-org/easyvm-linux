@@ -4,7 +4,7 @@ recording_resolution 1920x1080
 var out
   default out/distro.qcow2
   from args.out
-password admin
+password admin1
 var user
   default vmuser
   from args.user
@@ -127,9 +127,20 @@ step "partitions"
   settle 20
 
 
+# THE FIRST FIELD IS THE FULL NAME AND THE SECOND IS THE LOGIN NAME, AND THIS INSTALLER JOINS THEM.
+#
+# MEASURED, and it is the same fault zorin's file records: both fields carried `{{ user }}`, and the
+# disk came out with the account `vmuservmuser` - the terminal title bar reads
+# `vmuservmuser@vmuservmuser-Standard-PC-Q35-ICH9`, user@host, so the account is the doubled string.
+# Every later stage then dialed `vmuser`, which is not an account, and sshd answered
+# `unable to authenticate ... no supported methods remain`.
+#
+# THE FULL NAME IS A SEPARATE WORD, so the pair is `VM User` / `vmuser` - which is what this
+# repository's `user vmuser` header and every ssh, vm-configure and dev stage expect.
 step "users - full name"
-  input text "{{ user }}"
+  input text "VM User"
     at 741 320
+  clear true
   settle 2
 
 

@@ -4,7 +4,7 @@ recording_resolution 1920x1080
 var out
   default out/distro.qcow2
   from args.out
-password admin
+password admin1
 var user
   default vmuser
   from args.user
@@ -503,7 +503,7 @@ step "drive encryption - don't encrypt"
 # MEASURED from run 45237227028's own recording, whose frame at t=3300 shows THE INSTALLATION ALREADY
 # FINISHED:
 #
-#	Install Pop!_OS 24.04 LTS
+#	Install Pop!_OS 26.04 LTS
 #	        [ rocket icon ]
 #	        Continue Setting Up
 #	                       [ ] [ Restart Device ] [ Shut Down ]
