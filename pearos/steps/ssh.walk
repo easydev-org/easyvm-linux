@@ -446,7 +446,7 @@ step "validate the password and hold the idle lock open"
   terminal_wait 0
 
 step "start sshd now and at every boot"
-  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now sshd; printf '%s\n' {{ password }} | sudo -S ufw disable 2>&1; printf '%s\n' {{ password }} | sudo -S systemctl disable --now firewalld 2>&1; echo FIREWALL_OFF"
+  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now sshd; printf '%s\n' {{ password }} | sudo -S ufw disable 2>&1; printf '%s\n' {{ password }} | sudo -S systemctl disable --now firewalld 2>&1; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 20
   terminal_wait 0
 

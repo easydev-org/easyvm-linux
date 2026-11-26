@@ -403,7 +403,7 @@ step "say what the guest's NIC is"
   # nothing about accepting an INBOUND SYN. Set rp_filter to 0 on every interface (looser than 2),
   # print the ACTUAL values, and end with the guest's own self-connect so the two questions - "does
   # the guest reach its own 22" and "what is rp_filter" - are both on the last line, not scrolled off.
-  run "sudo sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.enp0s6.rp_filter=0 >/dev/null 2>&1; echo MAC=$(cat /sys/class/net/enp0s6/address); echo RPF=$(cat /proc/sys/net/ipv4/conf/enp0s6/rp_filter) ALL=$(cat /proc/sys/net/ipv4/conf/all/rp_filter); sudo ss -lntp | grep :22 || echo NO_22_LISTEN; echo ---TCP-SELF---; timeout 3 bash -c \"echo > /dev/tcp/172.30.0.2/22\" 2>&1 && echo SELF_TCP_OK || echo SELF_TCP_FAIL; echo ---NFT-RAW---; sudo nft list ruleset 2>&1 | grep -iE \"drop|reject|raw|hook prerouting\" | head -12; echo ---CNT---; nstat -az 2>/dev/null | grep -iE \"InNoRoutes|InAddrErrors|InHdrErrors|ListenDrops|TCPReqQFullDrop|InErrs\" | head -8"
+  run "sudo sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.enp0s6.rp_filter=0 >/dev/null 2>&1; echo MAC=$(cat /sys/class/net/enp0s6/address); echo RPF=$(cat /proc/sys/net/ipv4/conf/enp0s6/rp_filter) ALL=$(cat /proc/sys/net/ipv4/conf/all/rp_filter); sudo ss -lntp | grep :22 || echo NO_22_LISTEN; echo ---TCP-SELF---; timeout 3 bash -c \"echo > /dev/tcp/172.30.0.2/22\" 2>&1 && echo SELF_TCP_OK || echo SELF_TCP_FAIL; echo ---NFT-RAW---; sudo nft list ruleset 2>&1 | grep -iE \"drop|reject|raw|hook prerouting\" | head -12; echo ---CNT---; nstat -az 2>/dev/null | grep -iE \"InNoRoutes|InAddrErrors|InHdrErrors|ListenDrops|TCPReqQFullDrop|InErrs\" | head -8; echo ---GUEST-CAP---; (sudo timeout 14 tcpdump -nn -e -i enp0s6 -c 6 'tcp port 22' > /tmp/gcap.txt 2>&1 &); echo CAPTURING_14s; echo ---RXLINK---; ip -s link show enp0s6 | tail -4"
   settle 15
   terminal_wait 0
 
@@ -414,6 +414,16 @@ step "say what the guest's NIC is"
 # no reachable lease. The static ARP entry the daemon installs (172.30.0.2 -> TapMAC, permanent) is
 # the fix for the ARP flap; the NIC does not need to be re-acquired again after sshd is already up.
 
+
+step "read what the guest saw on its own NIC"
+  # THE FINAL SPLIT: did qemu deliver the host's SYN to the guest's virtio NIC at all?
+  # `tcpdump -i enp0s6 'tcp port 22'` for 14 s in the guest, started by the step above; the host
+  # probe fires every 10 s, so one SYN lands inside the window if delivery works. A SYN here = the
+  # guest kernel got the frame and sshd failed to answer (guest/socket); an empty capture here, with
+  # the host-side pcap showing the SYN leaving qemubr0 for the right MAC, means the frame never
+  # reaches the guest - a qemu/tap delivery fault.
+  run "sleep 2; echo ---GUEST-SAW---; cat /tmp/gcap.txt 2>&1 | head -12"
+  timeout 30
 
 step "wait for sshd"step "wait for sshd"
   repeat

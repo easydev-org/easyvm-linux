@@ -258,7 +258,7 @@ step "allow password authentication"
   # `service` is what actually starts it here.
 
 step "enable sshd at boot and start it"
-  run "sudo systemctl enable ssh 2>/dev/null; sudo update-rc.d ssh defaults 2>/dev/null; sudo service ssh start; sudo service sshd start; sleep 2; sudo service ssh status; sudo ufw disable 2>&1; sudo systemctl disable --now firewalld 2>&1; echo FIREWALL_OFF"
+  run "sudo systemctl enable ssh 2>/dev/null; sudo update-rc.d ssh defaults 2>/dev/null; sudo service ssh start; sudo service sshd start; sleep 2; sudo service ssh status; sudo ufw disable 2>&1; sudo systemctl disable --now firewalld 2>&1; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 12
   terminal_wait 0
 
