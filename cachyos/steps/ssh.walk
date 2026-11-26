@@ -368,8 +368,8 @@ step "say what the guest's NIC is"
   # guest - which is a different fact from pearos's `connection refused` (host reached the guest,
   # the port was shut) that becomes `ssh_ready="true"` once its sshd starts. So the question is what
   # the guest's interfaces and addresses ACTUALLY are, and this step puts that on screen.
-  run "ip -br a; echo ---ROUTE---; ip r; echo ---NM---; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>&1"
-  settle 15
+  run "ip -br a; echo ---ROUTE---; ip r; echo ---NEIGH---; ip neigh; echo ---UFW---; sudo ufw status verbose 2>&1 | head -20; echo ---NFT---; sudo nft list ruleset 2>&1 | head -40; echo ---IFFW---; sudo iptables -S INPUT 2>&1 | head -20"
+  settle 20
   terminal_wait 0
 
 
