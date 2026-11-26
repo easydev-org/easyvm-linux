@@ -1,4 +1,4 @@
-walkthrough "popos - the pop installer walk"
+walkthrough "popos - the COSMIC installer walk, 26.04 LTS"
 resolution 1920x1080
 recording_resolution 1920x1080
 var out
@@ -23,526 +23,284 @@ step "boot the installer"
     machine "q35,accel=kvm,vmport=off"
     args [["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=popos.iso,media=cdrom,readonly=on,if=none,id=media0"], ["-device", "ide-cd,drive=media0,bootindex=0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=1"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
     timeout 1800
-step "wait for the live desktop"
-  repeat
-    do
-      item
-        read
-          name screen
-    until
-      source screen
-      mode like
-      reference reference/desktop.png
-      range [0.9, 1]
-      rect [0, 280, 300, 480]
-      rect_at [1920, 1080]
-      must true
-    max 1080
-    pause 5
 
 
-# THE INSTALLER IS NOT IN THE DOCK, AND TWO QUERIES HAVE ALREADY STARTED THE WRONG PROGRAM.
+# POP!_OS 26.04 IS A DIFFERENT INSTALLER FROM 24.04, AND THIS FILE WAS REWRITTEN FOR IT.
 #
-# FIRST FAILURE, run 45204783862 t=160s: the grid's search field held `stall` - the first two letters
-# of `install` never arrived because `meta_l` had only just opened it - so `ret` started whatever was
-# first in an UNFILTERED list, and the window that came up read "Editor's Choice ... Slack, Meld".
+# MEASURED by driving the whole install by hand on the published media, 2026-11-26. The old file drove
+# popOS' GNOME-shell installer - a search in the app grid, a language page, a keyboard page, a separate
+# disk page and a separate account page. 26.04 ships the COSMIC installer, which is ONE window with a
+# fixed 852x602 frame at (534,130) and a wizard inside it:
 #
-# SECOND FAILURE, run 45214546706 t=900s: the query was `pop!_os` and the program that started was
-# POPSICLE, whose window reads
+#	1  Select a Language      a list, `English` preselected
+#	2  Keyboard Layout        `English (US)` preselected
+#	3  keyboard variants      `Default` preselected
+#	4  Install                two cards: `Clean Install`, `Custom (Advanced)`
+#	5  Select a drive         the virtio disk as a card
+#	6  Create User Account    `Full Name` + `User Name`, then a SECOND pane for the passwords
+#	7  Drive Encryption       `Don't Encrypt` / `Set Password` / `Encrypt`
+#	8  install                `Partitioning Drive` then `Extracting Files`
 #
-#	Popsicle
-#	Choose an Image
-#	Select the .iso or .img that you want to flash. You can also plug your USB drives in now.
-#	Choose Image / No image selected / Hash: None
+# THE OLD FILE'S `wait for the live desktop` WAITED FOR A DOCK IMAGE (`reference/desktop.png`) THAT
+# 26.04 DOES NOT DRAW THE SAME WAY. THIS ONE WAITS FOR THE INSTALLER WINDOW ITSELF, which is the only
+# thing this stage actually needs.
 #
-# Popsicle is popOS's own USB WRITER, and its name sorts before "Install Pop!_OS" in the same results
-# list - so a query that was believed to "match the installer alone" matched two programs, and `ret`
-# took the first. The recording is unambiguous and this comment is what that picture says.
+# THE INSTALLER SOMETIMES OPENS BY ITSELF AND SOMETIMES DOES NOT, AND BOTH WERE MEASURED ON THIS MEDIA:
 #
-# SO THE QUERY IS THE INSTALLER'S FULL NAME, NOT A SUBSET OF IT, AND THE RESULT IS READ BACK BEFORE
-# `ret` IS PRESSED. "Install Pop!_OS" is the launcher's own title and cannot name Popsicle; the loop
-# reopens the grid and retypes if the letters were lost, which is the only other thing that goes wrong
-# here.
+#	hand run       the window appeared about 155 seconds in, unprompted
+#	scripted run   the session drew its wallpaper and its top panel and then sat there for a ten-minute
+#	               budget with no window at all
 #
-# THE READ-BACK REJECTS POPSICLE'S OWN WORDS TOO. A gate that only looked for "Install Pop!_OS" would
-# pass on a list holding BOTH - and that list is what produced this failure.
-step "open the app grid, and let it take the keyboard"
+# SO NEITHER "wait for it" NOR "always launch it" IS RIGHT ON ITS OWN. A SHORT WAIT, THEN THE LAUNCHER,
+# THEN A PROPER WAIT - and the `esc` between them is what makes both cases safe:
+#
+#	the wizard was already up   `meta_l` covers it, `esc` closes the launcher, the wizard is back
+#	the wizard was not up       `meta_l` opens the launcher, `install` finds it, Enter starts it
+#
+# AN UNCONDITIONAL LAUNCHER WAS TRIED FIRST AND IS WRONG: it steals the keyboard from a wizard already on
+# screen, and the next step then clicks into a window that no longer has focus.
+#
+# EVERY `Select`/`Next` BUTTON IS AT THE WINDOW'S LOWER RIGHT: (1344,691) while the wizard shows a
+# single `Select`, and it shifts left when a second button (`Back`) appears. The measured centres are
+# in each step.
+# A PLAIN WAIT, NOT A `repeat ... until`. MEASURED: `repeat`'s `until` FAILS when its `max` runs out -
+# it does not fall through - so using it as a probe killed the stage on the boot where the wizard had not
+# drawn yet. A `settle` costs the same seconds and cannot fail.
+#
+# THREE MINUTES COVERS BOTH MEASURED CASES: the hand run's window appeared at about 155 seconds, and the
+# boot that never starts it has finished drawing its desktop by then - which is what the launcher below
+# needs in order to work.
+step "give the live session three minutes to start the installer by itself"
+  settle 180
+
+
+step "open the launcher"
   input meta_l
   settle 6
 
-
-step "search for the installer alone"
-  type_gap 0.2
-  input text "Install Pop!_OS"
-  settle 5
-
-
-step "the search found the installer"
-  repeat
-    do
-      item "close whatever the grid started or left open"
-        input esc
-        settle 2
-      item
-        input meta_l
-        settle 6
-      item "type the query again, now that the field has the keyboard"
-        input text "Install Pop!_OS"
-      item
-        settle 5
-      item "read the filtered list"
-        read
-          name results
-    until
-      bind found
-      source results
-      mode text
-      # THE REGION IS THE RESULTS LIST, AND THE NEGATIVE HALF IS THE FIX. `words:` requires every word
-      # of its set on screen; `without:` is the other polarity of the same question, and it is what
-      # rejects a list that still offers Popsicle above the installer.
-      rect [700, 130, 1240, 550]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Install, Pop!_OS]]
-      without [Popsicle, flash]
-    max 6
-
+step "search for the installer"
+  input text "install"
+  settle 6
 
 step "start the one result"
   input ret
-  settle 30
+  settle 12
+
+step "close the launcher if it was still up"
+  input esc
+  settle 6
 
 
 step "the installer window is up"
   repeat
     do
       item
-        input 420 300
-        settle 3
-      item
-        settle 2
+        settle 5
       item "read the screen"
         read
-          name screen
-    until
-      bind done
-      source screen
-      mode text
-      rect [698, 153, 945, 755]
-      rect_at [1920, 1080]
-      scale 1
-      # THE SIDEBAR'S OWN TWO-WORD ROWS, not the single words every desktop has. MEASURED: a lone
-      # `language` matched `Workspaces Applications ... 3:49 AM` on a desktop with no installer on it,
-      # because a top bar with a language indicator satisfies a one-word set. The new installer's rows
-      # are phrases - "Clean install", "Erase disk", "Install" - and the rect is the sidebar itself.
-      #
-      # THE INSTALLER'S FIRST PAGE IS A LANGUAGE CHOICE, AND OCR READS ITS TITLE AS GARBAGE.
-      #
-      # MEASURED on run 45225658892: the whole reading was
-      #
-      #	Install Poy IN genre? a Language
-      #
-      # - "Install Pop!_OS" and "Choose a Language" mangled by tesseract on a light-on-dark heading.
-      # THE INSTALLER WAS UP, and this gate refused it for its entire hundred-round budget, which is
-      # the third distinct way this one step has failed (the App Store, then Popsicle, now a correct
-      # window it could not read).
-      #
-      # SO THE TWO FRAGMENTS TESSERACT PRODUCES EVERY TIME ARE ACCEPTED: `Install` AND `Poy`.
-      #
-      # MEASURED ACROSS TWO RUNS on the same page:
-      #
-      #	run 45225658892   Install Poy IN genre? a Language
-      #	run 45229527978   Install Poy IN genre * a Lang
-      #
-      # The heading is "Install Pop!_OS" over "Choose a Language", and the TAIL IS CUT SHORT
-      # INCONSISTENTLY - `Language` one run, `Lang` the next. A word-set requiring the third word
-      # therefore passes on one run and fails on the other, which is the worst kind of gate: it looks
-      # correct and is a coin flip.
-      #
-      # `Po` IS NOT A PREFIX MATCH. `says()` in internal/run/text.go normalises to letters and digits
-      # and then asks whether each wanted word is PRESENT WHOLE, so `Po` does not match `Poy` - the
-      # word to name is the one tesseract actually produced. A bare desktop carries neither `Install`
-      # nor `Poy`, which is the property the two-word rule above protects.
-      words [[Clean, install], [Erase, disk], [Install, Ubuntu], [Install, Poy]]
-    max 100
-
-
-step "select the language, all the way to the keyboard page"
-  repeat
-    do
-      item
-        input 1367 810
-        settle 6
-      item
-        settle 2
-      item "read the screen"
-        read
-          name kb
+          name inst2
     until
       bind there
-      source kb
+      source inst2
       mode text
-      rect [728, 680, 857, 755]
+      rect [534, 130, 1386, 200]
       rect_at [1920, 1080]
-      scale 1
-      words [[Layout]]
-    max 8
+      scale 2
+      words [[Install, LTS], [Install, Pop!_OS]]
+    max 120
+    pause 5
 
 
-step "the keyboard page is up"
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name kb
-    until
-      bind there
-      source kb
-      mode text
-      rect [728, 680, 857, 755]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Layout], [Type]]
-    max 20
-
-
-step "the keyboard layout, which is US"
-  input 1190 696
-  settle 3
-
-
-# FOUR STEPS HERE TYPED INTO THE LAYOUT'S TEST FIELD AND ASSERTED NOTHING, AND ONE OF THEM COULD NOT
-# RUN AT ALL.
+# PAGE 1 - LANGUAGE. `English` is the first row and already highlighted, so this only presses Select.
 #
-# MEASURED on run 45232755367, which got past the language page and died at step 16/44:
-#
-#	the layout types latin letters - type the value: `press:` needs a coordinate, `key:`, `text:`,
-#	button:` or `colour:`
-#
-# The line was `input text ` with NOTHING AFTER IT - an action whose whole content is the value it
-# carries, carrying none. It has probably never executed: every earlier popOS run died before the
-# keyboard page, so this is the first time the walk got here.
-#
-# THE INTENT WAS A SANITY CHECK - "the layout types latin letters" - and there is no check after it:
-# no `read`, no `words`, nothing that would notice a wrong answer. Four keystrokes with no assertion
-# are four chances to type into the wrong field, and the field they targeted (1190,757) is inside the
-# layout TEST BOX of the new installer, which a plain `ret` on Next does not need.
-#
-# SO THEY ARE DELETED RATHER THAN INVENTED A VALUE FOR. `the layout types latin letters` would have to
-# be rewritten as a read-and-assert step to mean anything, and that is a different piece of work from
-# making this install finish.
-step "take the keyboard layout"
-  input 1367 810
+# MEASURED: the button does not always take the first press - the window has just drawn and the click
+# lands while the row is still being laid out. The second press is harmless if the first worked: by then
+# the page is the keyboard list and (1344,691) is its `Select` too, so a doubled press advances at most
+# one page and never skips one.
+step "language - select"
+  input 1344 691
   settle 6
 
-
-step "the install page is up"
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name inst
-    until
-      bind there
-      source inst
-      mode text
-      rect [1012, 391, 1105, 548]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Clean], [Custom]]
-    max 20
+step "language - select again, for a press the first page may not have taken"
+  input 1344 691
+  settle 8
 
 
-step "clean install"
-  input 1000 433
-  settle 3
+# PAGE 2 - KEYBOARD LAYOUT, `English (US)` preselected. THE `Select` HERE OPENS THE VARIANT LIST.
+step "keyboard - select"
+  input 1344 691
+  settle 8
 
 
-step "install"
-  input 1367 810
+# PAGE 3 - THE LAYOUT'S VARIANTS, `Default` preselected.
+step "keyboard variants - select"
+  input 1344 691
+  settle 8
+
+
+# PAGE 4 - THE INSTALL MODE. `Clean Install` is the first card; pressing it turns the grey `Next` into a
+# green `Clean Install` in the same place, and that is what starts the wizard proper.
+# THE CARD'S CENTRE IS (1177,371) ON THE FULL FRAME, NOT (1180,380) - AND THE CARD IS SHORT.
+#
+# MEASURED on the local run: a click at (1180,380) selected `Custom (Advanced)` instead, and the next
+# page was the MANUAL PARTITIONER (`Select which partitions to use across all drives...` / `Modify
+# Partitions...`) rather than a fresh install. The two cards are 100 pixels apart vertically and the
+# first one ends at about y=278 more than a whole card above the second, so this is a click that has to
+# land inside the upper card's own row.
+# THE CARD'S OWN ROW, AND THEN A CHECK THAT IT IS THE ONE THAT TOOK THE CLICK.
+#
+# MEASURED: the two cards sit 100 pixels apart, and a click that lands between them leaves the wizard on
+# its default selection - which is `Custom (Advanced)`, the MANUAL PARTITIONER. That page then asks
+# `Select which partitions to use across all drives` and the run dies on a screen it never expected.
+# The click is checked against the button's own label: `Clean Install` is drawn there only when the
+# first card is the chosen one, and `Next` when it is not.
+step "install - clean install"
+  input 1177 368
   settle 6
 
+step "install - the first card is the one that took the click"
+  read
+    name chosen
 
-step "the drive page is up"
+step "install - prove it, before the button is pressed"
   repeat
     do
       item
-        settle 3
-      item "read the screen"
-        read
-          name drv
-    until
-      bind there
-      source drv
-      mode text
-      rect [726, 458, 1217, 748]
-      rect_at [1920, 1080]
-      scale 1
-      words [[drive], [Virtio]]
-    max 20
-
-
-step "select a drive"
-  input 1185 497
-  settle 4
-
-
-step "erase and install"
-  input 1367 810
-  settle 10
-
-
-step "wait for the account pane"
-  repeat
-    do
-      item
-        settle 2
-      item "read the screen"
-        read
-          name screen
-    until
-      bind done
-      source screen
-      mode text
-      rect [731, 533, 1021, 790]
-      rect_at [1920, 1080]
-      scale 1
-      words [[Account], [User]]
-    max 45
-
-
-step "type the display name - click the field"
-  input 1190 530
-
-
-step "type the display name - select what is there"
-  input ctrl+a
-  settle 1
-
-
-step "type the display name - delete the selection"
-  input backspace
-  settle 1
-
-
-step "type the display name - type the value"
-  input text "{{ user }}"
-  type_gap 0.09
-  settle 2
-
-
-step "create user account, and wait for the password pane"
-  repeat
-    do
-      item
-        input 1367 816
-        settle 8
-      item
-        settle 2
-      item "read the screen"
-        read
-          name pw_pane
-    until
-      bind there
-      source pw_pane
-      mode text
-      rect [943, 383, 1161, 544]
-      rect_at [1920, 1080]
-      scale 3
-      words [[Confirm], [Password]]
-    max 6
-# THE PASSWORD IS ONLY TYPED WHEN THE PASSWORD PANE IS ACTUALLY UP.
-#
-# MEASURED ON THE PUBLISHED DISK (linux-popos, 2026-11-21T19:00): its greeter reads
-#
-#	adminadmin
-#
-# as the ACCOUNT NAME. That is the password, typed twice, into the ACCOUNT PAGE's name field -
-# so this step's two fixed coordinates (1200,448) and (1200,544) landed on the page BEFORE the
-# password pane, and the install then created an account called `adminadmin` with an unknown
-# password. Every ssh stage against that disk fails at the greeter with
-# `pam_authenticate: AUTH_ERR`, which is what three runs of this workflow spent their time on.
-#
-# THE GUARD IS THE PANE'S OWN LABELS. `Confirm` and `Password` are drawn on the password pane and
-# THE PANE IS WAITED FOR, NOT GATED ON A GUARD THAT CAN ALSO SKIP THE REAL PAGE.
-#
-# THE FIRST VERSION OF THIS FIX WAS WRONG IN THE OTHER DIRECTION, AND THE NEXT RUN PROVED IT: a
-# `when:` on the pane's labels skips the step when the reader does not see them - and the two
-# password fields were then never typed. The disk it published has an account whose password is not
-# this walk's, so its greeter answers `pam_authenticate: AUTH_ERR` and no password logs in.
-#
-# A `when:` IS THE WRONG INSTRUMENT FOR "WAIT UNTIL": it is a gate, and a gate that mis-reads
-# silently removes the step. The loop below RETRIES until the pane is there - pressing nothing but
-# `Next`, which is what got here - and the two steps after it are then unconditional, so the fields
-# are always typed once the pane is up.
-
-
-step "prove the password pane is up before typing into it"
-  repeat
-    do
-      item
+        input 1177 368
         settle 4
       item "read the screen"
         read
-          name pw2
+          name chosen2
     until
-      bind there
-      source pw2
+      bind ok
+      source chosen2
       mode text
-      rect [930, 350, 1400, 570]
+      rect [1155, 675, 1386, 710]
       rect_at [1920, 1080]
       scale 2
-      words [[password], [confirm]]
-    max 12
+      words [[Clean, Install]]
+    max 10
+    pause 2
+
+step "install - start"
+  input 1304 691
+  settle 12
 
 
-step "type the password - click the field"
-  input 1200 448
+# PAGE 5 - THE DRIVE. The card is the only entry; selecting it turns `Erase and Install` red and live.
+step "drive - choose the virtio disk"
+  input 1174 418
+  settle 5
 
-
-step "type the password - select what is there"
-  input ctrl+a
-  settle 1
-
-
-step "type the password - delete the selection"
-  input backspace
-  settle 1
-
-
-step "type the password - type the value"
-  input text "{{ password }}"
-  type_gap 0.09
-  settle 2
-
-
-step "confirm the password - click the field"
-  input 1200 544
-
-
-step "confirm the password - select what is there"
-  input ctrl+a
-  settle 1
-
-
-step "confirm the password - delete the selection"
-  input backspace
-  settle 1
-
-
-step "confirm the password - type the value"
-  input text "{{ password }}"
-  type_gap 0.09
-  settle 2
-# AND THE TWO FIELDS ARE READ BACK, BECAUSE A FIELD THAT DID NOT TAKE IS AN ACCOUNT NOBODY CAN USE.
-# The password box shows dots, so what is checked is that SOMETHING is in each row.
-
-
-step "prove both password rows hold characters"
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name pwdots
-    until
-      bind filled
-      source pwdots
-      mode matches
-      pattern ".{4,}"
-      rect [960, 430, 1400, 570]
-      rect_at [1920, 1080]
-      scale 3
-    max 6
-# AND THE NAME FIELD IS READ BACK WHERE IT CAN STILL BE SEEN - ON THE ACCOUNT PAGE, BEFORE
-# `Next` IS PRESSED, because a disk that installs an account nobody can log into looks exactly
-# like a successful install and only fails twenty minutes later in the ssh stage.
-#
-# The read happens in the `type the display name` loop above (`words: [[VM], [User]]`), which is
-# what proves the field took the text; this comment is the record of why that read is not optional.
-
-
-step "account password next"
-  input 1367 810
-  settle 25
-
-
-step "drive encryption - don't encrypt"
-  input 1367 810
+step "drive - erase and install"
+  input 1284 692
   settle 15
 
 
-# "THE INSTALL HAS STARTED" IS NOT "THE INSTALL HAS FINISHED", AND THIS LEG WAS KILLED ON THE FIRST.
+# PAGE 6 - THE ACCOUNT, FIRST PANE. `Full Name` is the only empty field, and THIS INSTALLER DERIVES THE
+# USER NAME FROM IT: typing `VM User` makes the `User Name` box read `vmuser` by itself - measured, and
+# it is the same behaviour zorin's ubiquity page has.
 #
-# MEASURED on run 45234230218, the first popOS leg that ever reached the install: the published disk
-# was 562 MiB, and the note in the publish step - written while measuring other guests - calls
-# "popos at 2.5 GiB" the smallest real one. 562 MiB is the ESP and a partly-written root.
+# THE NAME IS WRITTEN OUT AND THEN OVERWRITTEN, because "derived" is a rule about this build and the
+# account every later stage dials is `{{ user }}`. A field that was going to be filled by the installer
+# is cleared first, so the value below is the value the disk gets whatever the rule does.
+step "account - full name"
+  input text "VM User"
+    at 1180 454
+    clear true
+  settle 3
+
+step "account - user name"
+  input text "{{ user }}"
+    at 1180 520
+    clear true
+  settle 3
+
+step "account - next, which opens the password pane"
+  input 1324 692
+  settle 10
+
+
+# PAGE 6, SECOND PANE - THE PASSWORDS. `Choose Account Password` at y=374 and `Confirm Password` at
+# y=476, both measured on the frame.
 #
-# The step below waited for ONE of `Extracting` / `Installing` / `Copying` to appear and then settled
-# thirty-five seconds. An installer announces that word in its first seconds and takes minutes to copy
-# - so the machine was stopped about thirty seconds into a multi-gigabyte write.
-#
-# `popos-smoke` then reported the truth on the console:
-#
-#	BdsDxe: failed to load Boot0002 "UEFI Misc Device" ... Not Found
-#	BdsDxe: No bootable option or device was found.
-#
-# NO BOOT LOADER, because the boot loader is written at the end.
-#
-# SO THE INSTALLER'S OWN END MARK IS WAITED FOR, AND IT IS THE ONE ubuntu USES - this is the same
-# installer underneath, and ubuntu's leg has passed for weeks with these words: "installed and ready
-# to use" / "restart to complete the installation" / "restart now". The budget is forty-five minutes,
-# which is generous for an image ubuntu copies in about eight.
-# THE WORDS AND THE REGION WERE ubuntu's, AND THIS INSTALLER PUTS ITS END SOMEWHERE ELSE.
-#
-# MEASURED from run 45237227028's own recording, whose frame at t=3300 shows THE INSTALLATION ALREADY
-# FINISHED:
-#
-#	Install Pop!_OS 26.04 LTS
-#	        [ rocket icon ]
-#	        Continue Setting Up
-#	                       [ ] [ Restart Device ] [ Shut Down ]
-#
-# The window occupies x 483..1437, y 150..855, and the completion line sits at y≈745 - OUTSIDE the
-# rect [690, 630, 1270, 730] this step was reading, which is why the leg failed with
-#
-#	none of "installed and ready to use" ... in "——E_—O"
-#
-# (the OCR of the window's edge). popOS's installer is not ubuntu's: it is a GTK app whose completion
-# page offers `Continue Setting Up` / `Restart Device`, and none of ubuntu's three phrasings appear.
-#
-# SO THE REGION IS THE WHOLE WINDOW AND THE WORDS ARE THIS INSTALLER'S OWN. `Restart Device` is the
-# button, `Continue Setting Up` the caption - either is proof the copy is done, and both are on the
-# page that only appears when it is.
-step "the installer finishes"
+# THE INSTALLER WARNS THAT THIS PASSWORD IS SHORTER THAN EIGHT CHARACTERS and lets it through - the
+# warning is `The password is shorter than 8 characters` beside the field, and the `Next` button is
+# live regardless. That is recorded here because it is the one place in this repository where the
+# organisation's `admin1` meets a policy that would rather it were longer.
+step "password - choose"
+  input text "{{ password }}"
+    at 1180 374
+    clear true
+  settle 3
+
+step "password - confirm"
+  input text "{{ password }}"
+    at 1180 476
+    clear true
+  settle 3
+
+step "password - next, which opens drive encryption"
+  input 1324 692
+  settle 10
+
+
+# PAGE 7 - DRIVE ENCRYPTION. `Don't Encrypt` IS THE ANSWER THIS REPOSITORY WANTS, and it is the LEFT of
+# three buttons: an encrypted disk asks for a passphrase at every boot, which an unattended client cannot
+# type - the same reason macOS' setup assistant is answered with a clear password and pearOS gets
+# automatic login.
+step "encryption - don't encrypt"
+  input 1037 692
+  settle 15
+
+
+# PAGE 8 - THE INSTALL ITSELF. Two captions, `Partitioning Drive` and then `Extracting Files`, and the
+# second is the long one: it unpacks the root image onto the disk.
+step "the install runs, partitioning then extracting"
   repeat
     do
       item
-        input 420 300
-        settle 20
-      item
-        settle 2
+        settle 10
       item "read the screen"
         read
-          name screen
+          name prog
     until
       bind done
-      source screen
+      source prog
       mode text
-      rect [483, 150, 1437, 855]
+      rect [534, 600, 1386, 700]
       rect_at [1920, 1080]
-      scale 1
-      words [[Continue, Setting, Up], [Restart, Device]]
-    max 135
+      scale 2
+      words [[Extracting, Installing], [Partitioning], [Finishing]]
+    max 60
+    pause 5
 
 
-step "give the installer its last few seconds, because \"ready to use\" is not \"flushed\""
-  settle 20
+# THE FINISHED PAGE SAYS `Installation Complete` AND OFFERS A RESTART. It is not the same as "installed":
+# the medium still boots, so this stage stops the machine and publishes the disk rather than pressing
+# Restart, which is what every other walk in this repository does.
+step "the install finishes"
+  repeat
+    do
+      item
+        settle 10
+      item "read the screen"
+        read
+          name fin
+    until
+      bind done
+      source fin
+      mode text
+      rect [534, 200, 1386, 700]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Installation, Complete], [Restart], [installed]]
+    max 150
+    pause 5
+
+
+step "give the installer its last few seconds, because \"complete\" is not \"flushed\""
+  settle 25
 
 
 step "stop the machine"

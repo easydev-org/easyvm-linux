@@ -32,13 +32,21 @@ step "wait for the live desktop"
         read
           name screen
     until
+      # THE DOCK IMAGE NO LONGER MATCHES, AND THE REASON IS THE MEDIUM RATHER THAN THE PICTURE.
+      #
+      # MEASURED on the 261123 media (run 45743916100): the live session draws its wallpaper and then a
+      # `CachyOS Hello` window - the panel is at the BOTTOM, and the top 120 pixels that
+      # `reference/desktop.png` was cropped from are now plain wallpaper. The reader answered
+      # `0.0000 similar, wanted 0.9000..1.0000` for ninety minutes.
+      #
+      # THE WELCOME WINDOW'S OWN HEADING IS THE WITNESS: `Welcome to CachyOS!` is drawn large, centred
+      # at [560,300,1330,370], and exists only once the session is up.
       source screen
-      mode like
-      reference reference/desktop.png
-      range [0.9, 1]
-      rect [0, 0, 1920, 120]
+      mode text
+      rect [560, 300, 1330, 370]
       rect_at [1920, 1080]
-      must true
+      scale 2
+      words [[Welcome, to, CachyOS]]
     max 1080
     pause 5
 
