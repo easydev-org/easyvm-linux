@@ -424,6 +424,36 @@ step "guest tcp counters for a dropped SYN"
 # counters and nstat lines above answer the same question without a capture.)
 
 
+# FLUSH THE GUEST'S NETFILTER OUTRIGHT, BECAUSE THE COUNTERS SAY THAT IS WHERE THE SYN DIES.
+#
+# Run 45903101168 finally measured the guest's TCP layer with the split, echo-based commands:
+#   ss -lnt: LISTEN 0.0.0.0:22
+#   enp0s6:  RX packets 1099 errors 0 dropped 0
+#   nstat:   TcpInSegs 983 TcpOutSegs 460 TcpAttemptFails 0 TcpInErrs 0
+#            ListenDrops 0 ListenOverflows 0 TCPReqQFullDrop 0 SyncookiesSent 0
+#
+# EVERY drop counter is ZERO, including ListenDrops - so the SYN never reached the TCP listen queue.
+# The NIC dropped nothing either. A frame that the NIC received (RX increments), that no TCP counter
+# saw, and that the host pcap shows leaving for the right MAC, was dropped in between at NETFILTER.
+# `ufw disable` left the ufw chains in place (they are empty but present); a distro can also carry
+# its own nft rules that ufw never touched. Flushing is the one action that cannot leave a rule
+# behind, and if the SYN arrives after it, netfilter was the cause.
+step "flush the guest's netfilter and prove sshd still listens"
+  run "echo {{ password }} | sudo -S -p '' nft flush ruleset"
+  settle 2
+  terminal_wait 0
+
+step "drop iptables rules too"
+  run "echo {{ password }} | sudo -S -p '' sh -c 'iptables -F; iptables -P INPUT ACCEPT; iptables -P FORWARD ACCEPT; iptables -P OUTPUT ACCEPT'"
+  settle 2
+  terminal_wait 0
+
+step "sshd still listening after the flush"
+  run "echo {{ password }} | sudo -S -p '' ss -lnt | grep :22"
+  settle 2
+  terminal_wait 0
+
+
 step "wait for sshd"
   repeat
     until machine_ssh
