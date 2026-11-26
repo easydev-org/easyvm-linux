@@ -328,6 +328,49 @@ step "open the firewall for ssh"
   terminal_wait 0
 
 
+# THE GUEST'S sshd IS UP AND THE HOST STILL CANNOT REACH IT: `no route to host`, WHICH IS ARP.
+#
+# MEASURED on run 45779041741, whose recording proves the guest side is complete and correct:
+#
+#	=== prove sshd is active   systemctl is-active sshd   ->   active
+#	=== open the firewall      ufw allow 22/tcp           ->   Rule added, 22/tcp ALLOW Anywhere
+#
+# and whose daemon log says, on every probe, `dial tcp 172.30.0.1:2222: connect: no route to host`.
+# `no route to host` is not "refused" - pearos, which passes, gets `connection refused` until its
+# sshd starts and then `ssh_ready="true"`. Refused means the host REACHED the guest and the port was
+# shut. No-route means the host never got an ARP reply, i.e. the guest's address is not answering on
+# the tap - whatever the desktop BELIEVES its address is (fastfetch prints "Local IP (wlan0):
+# 172.30.0.2/24", and the interface being called wlan0 is the smell: NetworkManager has taken the
+# virtio NIC and may not have brought it up the way the tap needs).
+#
+# SO THE GUEST IS ASKED, in its own terminal, to say what its interfaces and routes actually are and
+# then to bring the wired NIC up through NetworkManager. Both the diagnosis and the fix are here
+# because the next run is the measurement: if this brings the link up, `wait for sshd` passes; if it
+# does not, the `ip a` / `nmcli` output on screen is the answer the logs never carried.
+step "say what the guest's NIC is"
+  # THE TERMINAL HERE IS FISH (`fish: Unknown command: xset` on an earlier frame), so these are
+  # plain commands a person could type at a fish prompt - no `$(...)`, no bash loops.
+  #
+  # THE HOST GETS `no route to host` ON EVERY PROBE while the guest's own screen says sshd is
+  # `active` and ufw allows 22/tcp. `no route to host` is ARP failing - the host never reaches the
+  # guest - which is a different fact from pearos's `connection refused` (host reached the guest,
+  # the port was shut) that becomes `ssh_ready="true"` once its sshd starts. So the question is what
+  # the guest's interfaces and addresses ACTUALLY are, and this step puts that on screen.
+  run "ip -br a; echo ---ROUTE---; ip r; echo ---NM---; nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device 2>&1"
+  settle 15
+  terminal_wait 0
+
+
+step "make NetworkManager re-take the NIC, which is address-agnostic"
+  # `nmcli networking off` then `on` makes NetworkManager drop and re-acquire every device, which
+  # re-runs DHCP on the wired NIC whatever it is named - no interface name is guessed here. A guest
+  # whose post-install NetworkManager never brought the wired NIC up gets a lease from this; a guest
+  # that already has one is unchanged.
+  run "sudo nmcli networking off; sudo nmcli networking on; sleep 5; echo ---AFTER---; ip -br a"
+  settle 20
+  terminal_wait 0
+
+
 step "wait for sshd"
   repeat
     until machine_ssh
