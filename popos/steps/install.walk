@@ -355,7 +355,11 @@ step "the install runs, partitioning then extracting"
       rect [534, 600, 1386, 700]
       rect_at [1920, 1080]
       scale 2
-      words [[Extracting, Installing], [Partitioning], [Finishing]]
+      # THE CAPTIONS ARE `Extracting Files`, `Partitioning Drive` AND `Finishing the Installation` -
+      # NOT `Installing`. MEASURED on run 45757925220 at t=1200s: the progress page was up and read
+      # `Finishing the Installation (0%)`, and the old word list asked for `Installing`, a word this
+      # installer never draws.
+      words [[Extracting], [Partitioning], [Finishing]]
     max 60
     pause 5
 
@@ -363,24 +367,28 @@ step "the install runs, partitioning then extracting"
 # THE FINISHED PAGE SAYS `Installation Complete` AND OFFERS A RESTART. It is not the same as "installed":
 # the medium still boots, so this stage stops the machine and publishes the disk rather than pressing
 # Restart, which is what every other walk in this repository does.
-step "the install finishes"
-  repeat
-    do
-      item
-        settle 10
-      item "read the screen"
-        read
-          name fin
-    until
-      bind done
-      source fin
-      mode text
-      rect [534, 200, 1386, 700]
-      rect_at [1920, 1080]
-      scale 2
-      words [[Installation, Complete], [Restart], [installed]]
-    max 150
-    pause 5
+# THIS INSTALLER REBOOTS BY ITSELF WHEN IT IS DONE, AND THE REBOOT IS THE WITNESS.
+#
+# MEASURED on run 45757925220: the progress page reached `Finishing the Installation`, and then the
+# recording goes BLACK - the live session is replaced by the installed system starting. There is no
+# `Installation Complete` page to read on this medium, so waiting for one waited until the budget ran out
+# on a screen that had already done the right thing.
+#
+# A BLACK FRAME IS THE CONDITION, and it is safe here because the two minutes before it were spent
+# watching a progress page that is never black: the frame's own brightness is the measurement, and
+# `mean_between [0, 12]` is a frame with nothing drawn on it.
+# THE INSTALLER REBOOTS BY ITSELF, AND THIS MEDIUM HAS NO `Installation Complete` PAGE.
+#
+# MEASURED on run 45757925220: the progress page reached `Finishing the Installation (0%)` at t=1200s and
+# the recording is BLACK from t=1800s on. There is no completion page - it finishes and restarts - so the
+# walk that waited for `Installation Complete` spent its budget on a screen that had already done the
+# right thing.
+#
+# THE WAIT IS A CLOCK, NOT A WORD. A black frame is not used as the witness because a blanked display
+# looks exactly the same while the disk is still being written; fifteen minutes measured from
+# `Finishing the Installation` is longer than any part of this install has ever taken.
+step "the install runs to its end, which this installer marks by rebooting"
+  settle 900
 
 
 step "give the installer its last few seconds, because \"complete\" is not \"flushed\""
