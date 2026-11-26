@@ -486,7 +486,18 @@ step "sshd still listening after the flush"
 # `run` steps that were supposed to install and start it did nothing, and the host probe was right
 # to fail - the fault is the screen, not the wire.
 step "ask the guest agent whether sshd is really up"
-  qga "info"
+  # `qga: exec` RUNS A COMMAND IN THE GUEST AND READS ITS OUTPUT - no screen, no ssh, no password.
+  # This is the ground truth the file has been missing: every `run` above types into Konsole and
+  # cannot tell whether the command executed. If `ss -lnt` here shows :22, sshd is up and any probe
+  # failure is the network; if it shows nothing, the run steps that install/start sshd did nothing
+  # and the screen ate them.
+  # `/proc/net/tcp` IS THE KERNEL'S OWN LISTEN TABLE, and `qga: file-read` returns it without a
+  # shell, without a screen and without ssh. A listening 22 shows as `:0016` with state `0A`
+  # (TCP_LISTEN). This is the ground truth: if :0016/0A is here, sshd IS listening in the guest and
+  # any host probe failure is the network; if it is absent, sshd is not up and the `run` steps that
+  # were meant to start it did nothing.
+  qga "file-read"
+  path "/proc/net/tcp"
   timeout 60
 
 step "wait for sshd"
