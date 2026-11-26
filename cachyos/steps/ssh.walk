@@ -399,12 +399,12 @@ step "guest rp_filter as it really is"
   terminal_wait 0
 
 step "guest listener and rx counters"
-  run "printf '%s\n' '{{ password }}' | sudo -S -p '' ss -lnt | grep :22"
+  run "echo {{ password }} | sudo -S -p '' ss -lnt | grep :22"
   settle 2
   terminal_wait 0
 
 step "guest rx/tx packet counters on its NIC"
-  run "printf '%s\n' '{{ password }}' | sudo -S -p '' ip -s -s link show enp0s6 | tail -8"
+  run "echo {{ password }} | sudo -S -p '' ip -s -s link show enp0s6 | tail -8"
   settle 2
   terminal_wait 0
 
