@@ -391,7 +391,19 @@ step "say what the guest's NIC is"
   # guest - which is a different fact from pearos's `connection refused` (host reached the guest,
   # the port was shut) that becomes `ssh_ready="true"` once its sshd starts. So the question is what
   # the guest's interfaces and addresses ACTUALLY are, and this step puts that on screen.
-  run "echo MAC=$(cat /sys/class/net/enp0s6/address); echo QEMU_MAC=52:54:00:56:4d:01; echo ---LISTEN---; sudo ss -lntp | grep :22 || echo NO_22_LISTEN; echo ---SSHD-T---; sudo sshd -T 2>&1 | grep -iE \"^(port|listenaddress)\" || echo NO_SSHD_T; echo ---PING-HOST---; ping -c2 -W2 172.30.0.1 2>&1 | tail -3; echo ---TCP-SELF---; timeout 3 bash -c \"echo > /dev/tcp/172.30.0.2/22\" 2>&1 && echo SELF_TCP_OK || echo SELF_TCP_FAIL; echo ---NFT---; sudo nft list ruleset 2>&1 | head -15; echo ---IPT---; sudo iptables -S INPUT 2>&1 | head -8; echo ---NEIGH-LAST---; ip neigh"
+  # THE PCAP (run 45884303163) IS THE ANSWER TO "WHERE": the host's SYN reaches qemutap0 as
+  # `172.30.0.1.x > 172.30.0.2.22: Flags [S]` three times, and there is NO SYN-ACK back. So the
+  # guest received the SYN on its own virtio NIC and did not answer it. Everything on the HOST is
+  # now correct; this step is about the guest's kernel dropping a SYN it can plainly see.
+  #
+  # THE PRIME SUSPECT IS rp_filter ON THE GUEST. A SYN from 172.30.0.1 arrives on enp0s6; strict
+  # reverse-path filtering (1) drops it before it reaches sshd if the kernel's best route back to
+  # 172.30.0.1 is not enp0s6 (a second route table, or the default via the same address, can make it
+  # ambiguous). ICMP from the guest to the host worked, which only proves the OUTBOUND path; it says
+  # nothing about accepting an INBOUND SYN. Set rp_filter to 0 on every interface (looser than 2),
+  # print the ACTUAL values, and end with the guest's own self-connect so the two questions - "does
+  # the guest reach its own 22" and "what is rp_filter" - are both on the last line, not scrolled off.
+  run "sudo sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=0 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.enp0s6.rp_filter=0 >/dev/null 2>&1; echo MAC=$(cat /sys/class/net/enp0s6/address); echo RPF=$(cat /proc/sys/net/ipv4/conf/enp0s6/rp_filter) ALL=$(cat /proc/sys/net/ipv4/conf/all/rp_filter); sudo ss -lntp | grep :22 || echo NO_22_LISTEN; echo ---TCP-SELF---; timeout 3 bash -c \"echo > /dev/tcp/172.30.0.2/22\" 2>&1 && echo SELF_TCP_OK || echo SELF_TCP_FAIL; echo ---NFT-RAW---; sudo nft list ruleset 2>&1 | grep -iE \"drop|reject|raw|hook prerouting\" | head -12; echo ---CNT---; nstat -az 2>/dev/null | grep -iE \"InNoRoutes|InAddrErrors|InHdrErrors|ListenDrops|TCPReqQFullDrop|InErrs\" | head -8"
   settle 15
   terminal_wait 0
 
