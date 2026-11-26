@@ -296,8 +296,20 @@ step "allow password authentication"
 
 
 step "enable sshd at boot, and start it"
-  run "echo {{ password }} | sudo -S systemctl enable --now sshd 2>&1 | tail -3"
-  settle 12
+  # THE HOST KEYS MUST EXIST BEFORE sshd STARTS, OR IT STARTS AND EXITS AT ONCE.
+  #
+  # MEASURED in the pod on this exact disk (the linux-cachyos install), booted and driven by hand:
+  # after `pacman -S openssh` the unit is `inactive (dead)` and `disabled`, and `ss -lntp | grep :22`
+  # is EMPTY. This file used to generate the host keys at step "make sure the host keys exist",
+  # which sat AFTER `wait for sshd` - so for the whole ten minutes of that wait there were no keys,
+  # sshd had nothing to present, and `enable --now` created a symlink and left the daemon dead.
+  #
+  # `ssh-keygen -A` FIRST, then the unit can actually run. And `ufw` defaults to `INPUT DROP` (read
+  # off `iptables -S INPUT` in that same guest), so `ufw allow 22/tcp` is the other half - without
+  # it the host's SYN is dropped and the probe reports "no route to host", which reads as a broken
+  # link rather than a closed door. Both are done here, in one run, before anything waits.
+  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw allow 22/tcp 2>&1 | tail -2; systemctl is-active sshd"
+  settle 15
   terminal_wait 0
 
 
