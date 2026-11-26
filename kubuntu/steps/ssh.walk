@@ -150,7 +150,7 @@ step "allow password authentication"
 
 
 step "enable ssh at boot"
-  run "sudo systemctl enable --now ssh"
+  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 

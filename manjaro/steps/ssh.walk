@@ -174,7 +174,7 @@ step "allow password authentication"
 
 
 step "enable sshd at boot"
-  run "sudo systemctl enable sshd 2>&1 | tail -3"
+  run "sudo systemctl enable sshd 2>&1 | tail -3; sudo ufw disable 2>&1; sudo systemctl disable --now firewalld 2>&1; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 

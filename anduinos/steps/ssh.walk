@@ -149,7 +149,7 @@ step "generate the host keys the installer did not"
 
 
 step "enable and start sshd"
-  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now ssh.service"
+  run "printf '%s\n' {{ password }} | sudo -S systemctl enable --now ssh.service; printf '%s\n' {{ password }} | sudo -S ufw disable 2>&1; printf '%s\n' {{ password }} | sudo -S systemctl disable --now firewalld 2>&1; echo FIREWALL_OFF"
   settle 15
   terminal_wait 0
 
