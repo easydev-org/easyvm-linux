@@ -144,7 +144,10 @@ step "the region list is up"
       bind there
       source reg
       mode text
-      rect [610, 215, 900, 290]
+      # MEASURED on the frame: the region list's first two rows are `United States` at
+      # [986,250,1102,273] and `Antigua and Barbuda` below it, both inside the window (534,130)-(1386,732).
+      # A box at [610,215,900,290] covers the illustration instead, and the reader answered `inn`.
+      rect [980, 245, 1270, 300]
       rect_at [1920, 1080]
       scale 2
       words [[United, States], [Antigua]]
@@ -169,7 +172,9 @@ step "the keyboard page is up"
       bind there
       source kb
       mode text
-      rect [590, 430, 1000, 490]
+      # MEASURED: `Keyboard Layout` is drawn at [646,573,861,603] on the full frame - the window's
+      # lower-left, under the illustration.
+      rect [640, 568, 900, 610]
       rect_at [1920, 1080]
       scale 2
       words [[Keyboard, Layout]]
@@ -194,7 +199,9 @@ step "the variants page is up"
       bind there
       source var
       mode text
-      rect [600, 215, 1300, 320]
+      # MEASURED: the variants list's first rows are `Default` at [986,250,1040,273] and `Cherokee`
+      # below it - the same place the region list draws its first row, because it is the same widget.
+      rect [980, 245, 1200, 330]
       rect_at [1920, 1080]
       scale 2
       words [[Default], [Cherokee]]
