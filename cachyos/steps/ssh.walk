@@ -124,7 +124,17 @@ step "greeter - the password box - click the field"
 
 
 step "greeter - the password box - type the value"
-  input text 
+  # THE PASSWORD, WHICH THIS LINE USED TO LEAVE OUT.
+  #
+  # The v1 file said `type == '{{ password }}'`; the rewrite to v2 emitted `input text ` with nothing
+  # after it, so this step typed ZERO characters into a password field that had already been clicked.
+  # CachyOS is the only distro here whose ssh leg LOGS IN through the greeter instead of relying on
+  # autologin, so the empty argument broke nothing else - and it failed exactly where it was expected
+  # to work. MEASURED on run 45772869180, which ends:
+  #
+  #	=== greeter - the password box - type the value
+  #	(the recording ends; no characters were typed, so the submit could not log in)
+  input text "{{ password }}"
   settle 3
 
 
