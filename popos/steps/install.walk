@@ -199,12 +199,20 @@ step "the variants page is up"
       bind there
       source var
       mode text
-      # MEASURED: the variants list's first rows are `Default` at [986,250,1040,273] and `Cherokee`
-      # below it - the same place the region list draws its first row, because it is the same widget.
-      rect [980, 245, 1200, 330]
+      # THE TAIL OF A WORD, BECAUSE THE READER LOSES THE FIRST LETTER OF THE HIGHLIGHTED ONE.
+      #
+      # MEASURED on run 45756919747: the reader answered `“herokee` for this region - one word, with a
+      # leading quote from the highlighted row's edge - and never produced `Default`, which is the row
+      # ABOVE it and is drawn white-on-cyan as the selection. `mode: text` matches a phrase against the
+      # words it was given, and `Default`'s own row is the one the reader could not resolve.
+      #
+      # `Cherokee` IS ALSO UNIQUE TO THIS PAGE: the language list has no such row, and the region list
+      # under it starts at `United States`. So it proves the variants page without depending on how the
+      # highlighted row reads.
+      rect [980, 245, 1200, 340]
       rect_at [1920, 1080]
       scale 2
-      words [[Default], [Cherokee]]
+      words [[herokee], [olemak], [vorak]]
     max 20
     pause 4
 
