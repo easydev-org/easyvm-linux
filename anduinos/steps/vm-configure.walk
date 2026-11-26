@@ -58,13 +58,31 @@ step "prove the name"
   timeout 60
 
 
+# ANDUINOS IS UBUNTU, SO THE PACKAGES COME FROM apt - NOT pacman.
+#
+# THIS BLOCK WAS COPIED FROM AN ARCH DISTRO (cachyos) AND NEVER TRANSLATED. MEASURED on run
+# 45774611436, step 11 of 19:
+#
+#	=== install the guest agent
+#	  ... pacman -S --noconfirm qemu-guest-agent ... -> 0
+#	    sudo: 'pacman': command not found
+#	=== enable the guest agent
+#	  ... systemctl enable --now qemu-guest-agent ... -> 0
+#	    Failed to enable unit: Unit qemu-guest-agent.service does not exist
+#	=== prove the guest agent is running
+#	  ... -> 4
+#	    inactive
+#
+# The `-> 0` on the first two is a lie: `pacman` did not exist and the pipe into `tail` swallowed
+# the failure, so a missing package manager read as success. AnduinOS is Ubuntu-based - apt-get, the
+# same `qemu-guest-agent` package, the same unit - and this is the ubuntu leg's block.
 step "refresh the package index"
-  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' pacman -Sy 2>&1 | tail -3\n"
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' sh -c 'DEBIAN_FRONTEND=noninteractive apt-get update -o DPkg::Lock::Timeout=600' 2>&1 | tail -3\n"
   timeout 600
 
 
 step "install the guest agent"
-  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' pacman -S --noconfirm qemu-guest-agent 2>&1 | tail -5\n"
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-guest-agent 2>&1 | tail -5\n"
   timeout 600
 
 
