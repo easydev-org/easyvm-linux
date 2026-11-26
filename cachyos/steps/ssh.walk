@@ -191,6 +191,39 @@ step "wait for the desktop"
     pause 5
 
 
+# THE CACHYOS HELLO WINDOW STEALS THE FOREGROUND, AND THE TERMINAL IS BEHIND IT.
+#
+# MEASURED on run 45774001076, whose recording is unambiguous once the frames are read one second
+# apart:
+#
+#	60 s   a clean desktop, the CachyOS Hello window not up yet
+#	62 s   CachyOS Hello is up, and KONSOLE IS ALREADY OPEN BEHIND IT (the >_ taskbar entry, and the
+#	       "5-11.1 / [GTK ... / 3/4]" lines of the terminal visible down its left edge)
+#	74 s   the cursor sits on Hello's "Forum" button
+#	86 s   Firefox has opened aur.archlinux.org - because the keystrokes meant for the terminal
+#	       landed on Hello's buttons and one of them is a web link
+#
+# So `ctrl+alt+t` DID open a terminal every time - the earlier "the terminal never opened" reading
+# was wrong. What goes wrong is FOCUS: Hello launches on login and sits above the terminal, so every
+# `run` after this point types into Hello (or the browser it opens) and sshd is never configured.
+# That is the whole of this leg's `10 minutes of connection refused`.
+#
+# THE FIX IS TO CLOSE HELLO FIRST, BEFORE THE TERMINAL IS WANTED, so the terminal this file opens is
+# the window the keys reach. `alt+f4` closes the focused window, and at this point the focused window
+# IS Hello - the frames above are that measurement. A machine that does not launch Hello sees alt+f4
+# do nothing on an empty desktop, which is why it is safe to send unconditionally.
+step "let the welcome window appear, then close it"
+  # Hello appears a beat AFTER the desktop scores, so wait for it before closing it: at 60 s the
+  # desktop is clean and at 62 s Hello is up, and an alt+f4 at 60 s would close nothing.
+  settle 8
+  input alt+f4
+
+
+step "close anything else that took the foreground"
+  settle 5
+  input alt+f4
+
+
 step "open the terminal"
   input ctrl+alt+t
   settle 20
