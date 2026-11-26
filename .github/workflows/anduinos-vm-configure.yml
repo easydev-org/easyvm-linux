@@ -27,7 +27,7 @@ on:
     inputs:
       disks_repository:
         description: "the ghcr repository that holds the disks"
-        default: "linux-anduinos-ssh"
+        default: "easydev-org/easyvm-linux"
       from_tag:
         description: >-
           the PUBLISHED disk this stage continues from (default linux-anduinos-ssh)
