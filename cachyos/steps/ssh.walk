@@ -308,7 +308,7 @@ step "enable sshd at boot, and start it"
   # off `iptables -S INPUT` in that same guest), so `ufw allow 22/tcp` is the other half - without
   # it the host's SYN is dropped and the probe reports "no route to host", which reads as a broken
   # link rather than a closed door. Both are done here, in one run, before anything waits.
-  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw allow 22/tcp 2>&1 | tail -2; systemctl is-active sshd"
+  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; systemctl is-active sshd"
   settle 15
   terminal_wait 0
 
@@ -335,7 +335,14 @@ step "prove sshd is active"
 
 
 step "open the firewall for ssh"
-  run "echo {{ password }} | sudo -S sh -c \"ufw allow 22/tcp; ufw status | head -6\" 2>&1 | tail -8"
+  # ufw IS DISABLED OUTRIGHT, NOT POKED WITH `allow 22/tcp`.
+  #
+  # anduinos and pearos - both PASSING - have no ufw at all, so their INPUT policy is ACCEPT and
+  # sshd is reachable the moment it listens. cachyos ships ufw enabled with `-P INPUT DROP`, and on
+  # run 45796366289 the guest showed `22/tcp ALLOW Anywhere` and `Status: active` and STILL answered
+  # the host's probe with `no route to host` - a drop, not a refusal. A VM on an isolated bridge has
+  # no business running a host firewall; disabling it is the same state the passing guests are in.
+  run "echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw status 2>&1 | head -2"
   settle 8
   terminal_wait 0
 
