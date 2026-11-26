@@ -148,7 +148,7 @@ step "show what the guest sees at the share"
 # THE LAUNCHER IS A systemd USER UNIT, WHICH NEEDS THE USER MANAGER - hence the autologin above: the
 # unit is enabled here and starts at the next login, which on this disk is the every-boot autologin.
 step "copy the launcher in"
-  copy
+  scp
     template launcher
     to /tmp/bootstrap-launcher.sh
   timeout 300
