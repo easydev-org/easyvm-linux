@@ -144,33 +144,42 @@ step "users - full name"
   settle 2
 
 
+# `clear: true` HERE TOO, AND THIS IS THE FIELD THE DOUBLED NAME CAME FROM. Calamares fills the login
+# name from the full name as it is typed - `VM User` becomes `vmuser` on its own - so a plain append
+# produces `vmuservmuser`, which is what this disk carried for three stages. Clearing first makes the
+# value this walk wrote the value the installer keeps.
 step "users - login name"
   input text "{{ user }}"
     at 741 385
+    clear true
   settle 2
 
 
 step "users - password"
   input text "{{ password }}"
     at 724 523
+    clear true
   settle 2
 
 
 step "users - confirm password"
   input text "{{ password }}"
     at 944 523
+    clear true
   settle 2
 
 
 step "users - root password"
   input text "{{ password }}"
     at 741 650
+    clear true
   settle 2
 
 
 step "users - confirm root password"
   input text "{{ password }}"
     at 944 650
+    clear true
   settle 3
 
 
