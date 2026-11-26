@@ -308,7 +308,23 @@ step "enable sshd at boot, and start it"
   # off `iptables -S INPUT` in that same guest), so `ufw allow 22/tcp` is the other half - without
   # it the host's SYN is dropped and the probe reports "no route to host", which reads as a broken
   # link rather than a closed door. Both are done here, in one run, before anything waits.
-  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; systemctl is-active sshd"
+  #
+  # rp_filter=2 IS THE FIX FOR A ONE-WAY FAILURE, AND THE MEASUREMENT IS COMPLETE.
+  # Run 45807597852's screen, at the diagnosis step, is every fact needed:
+  #
+  #	LISTEN 0.0.0.0:22  users:(("sshd",pid=2116))     sshd IS listening on all addresses
+  #	sshd -T: port 22, listenaddress 0.0.0.0:22
+  #	ping 172.30.0.1 -> 2 received, 0% packet loss     guest reaches the host
+  #	ip neigh -> 172.30.0.1 REACHABLE                  ARP resolves the host
+  #	MAC = 52:54:00:56:4d:01 = QEMU_MAC                the NIC is the right one
+  #
+  # Every one is correct, and the host STILL gets `no route to host` on 172.30.0.1:2222, which is
+  # ICMP host-unreachable, not a refusal. That is STRICT REVERSE-PATH FILTERING: rp_filter=1 drops a
+  # packet whose source route does not go back out the interface it arrived on, and answers
+  # host-unreachable. Arch/cachyos ships rp_filter=1 (strict); Ubuntu - anduinos, which passes -
+  # ships 2 (loose). The asymmetry is the whole bug: guest->host is fine, host->guest is dropped.
+  # `2` is loose mode: the path is checked for reachability, not for the exact interface.
+  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' sh -c 'sysctl -w net.ipv4.conf.all.rp_filter=2 net.ipv4.conf.enp0s6.rp_filter=2 net.ipv4.conf.default.rp_filter=2 2>&1 | tail -3'; systemctl is-active sshd"
   settle 15
   terminal_wait 0
 
