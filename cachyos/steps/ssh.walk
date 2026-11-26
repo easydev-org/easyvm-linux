@@ -375,7 +375,7 @@ step "say what the guest's NIC is"
   # guest - which is a different fact from pearos's `connection refused` (host reached the guest,
   # the port was shut) that becomes `ssh_ready="true"` once its sshd starts. So the question is what
   # the guest's interfaces and addresses ACTUALLY are, and this step puts that on screen.
-  run "echo MAC=$(cat /sys/class/net/enp0s6/address); echo QEMU_MAC=52:54:00:56:4d:01; echo ---PING-HOST---; ping -c2 -W2 172.30.0.1 2>&1 | tail -4; echo ---NEIGH-LAST---; ip neigh"
+  run "echo MAC=$(cat /sys/class/net/enp0s6/address); echo QEMU_MAC=52:54:00:56:4d:01; echo ---LISTEN---; sudo ss -lntp | grep :22 || echo NO_22_LISTEN; echo ---SSHD-T---; sudo sshd -T 2>&1 | grep -iE \"^(port|listenaddress)\" || echo NO_SSHD_T; echo ---PING-HOST---; ping -c2 -W2 172.30.0.1 2>&1 | tail -3; echo ---NEIGH-LAST---; ip neigh"
   settle 15
   terminal_wait 0
 
