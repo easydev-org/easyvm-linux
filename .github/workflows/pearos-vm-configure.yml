@@ -1,0 +1,65 @@
+name: pearos-vm-configure
+
+# THE STAGE THAT MAKES A PUBLISHED DISK USABLE WITHOUT A PERSON.
+#
+# The install stage proves a disk boots; the ssh stage proves sshd answers. Neither makes the machine
+# something a client can start and walk away from. This one does: a name, the guest agent, the share
+# reachable, and a launcher that runs the share's script at login.
+#
+# PEAROS NEEDS ONE THING MORE THAN ANY OTHER LINUX HERE - AUTOMATIC LOGIN. MEASURED: its published disk
+# boots to SDDM's greeter on every start (`Touch ID or Enter Password` under the wizard's avatar), and
+# the launcher is a `systemd --user` unit that only exists inside a session. Without autologin the
+# machine waits at a password prompt and the bootstrap never runs.
+#
+# THE MECHANISM IS NOT COPIED. The container options, the device probes, the pull, the daemon and the
+# follow loop live once in `stage.yml`, called with `workflow_call`.
+
+on:
+  # ONE STAGE, DISPATCHED BY HAND. pearOS' stages are separate workflows from the start: its install
+  # and smoke have no ssh leg to order after, and this one continues from the ssh stage's disk.
+  workflow_dispatch:
+    inputs:
+      disks_repository:
+        description: "the ghcr repository that holds the disks"
+        default: "easydev-org/easyvm-linux"
+      from_tag:
+        description: >-
+          the PUBLISHED disk this stage continues from (default linux-pearos-ssh)
+        default: "linux-pearos-ssh"
+
+concurrency:
+  group: pearos-vm-configure
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  checks: write
+
+jobs:
+  vm:
+    uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.4
+    secrets: inherit
+    with:
+      image_repository: easydev-org/easyvm
+      image_tag: v0.0.4
+      disk_gb: "20"
+      group: pearos-vm-configure
+      disks_repository: ${{ inputs.disks_repository }}
+      # THE WALK'S `password:` LINE IS A TEMPLATE VARIABLE, NOT A CREDENTIAL FOR THE DAEMON - the
+      # daemon's flag default is `admin` and this disk's is `admin1`. MEASURED: without this line every
+      # `ssh:` in the stage fails with `unable to authenticate ... no supported methods remain`, which
+      # reads like a broken sshd and is a wrong password.
+      password: "admin1"
+      stages: |
+        [
+          {
+            "name": "linux-pearos-vm",
+            "file": "pearos/steps/vm-configure.walk",
+            "pull": "${{ inputs.from_tag }}",
+            "fallback": "linux-pearos",
+            "out": "linux-pearos-vm.qcow2",
+            "timeout": 60,
+            "publish": "linux-pearos-vm"
+          }
+        ]

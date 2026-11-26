@@ -52,6 +52,11 @@ jobs:
       disk_gb: "20"
       group: anduinos-vm-configure
       disks_repository: ${{ inputs.disks_repository }}
+      # THE WALK'S `password:` LINE IS A TEMPLATE VARIABLE, NOT A CREDENTIAL FOR THE DAEMON - the
+      # daemon's flag default is `admin` and this disk's is `admin1`. MEASURED on the ssh stage: without
+      # this line every `ssh:` fails with `unable to authenticate ... no supported methods remain`, which
+      # reads like a broken sshd and is a wrong password.
+      password: "admin1"
       stages: |
         [
           {
