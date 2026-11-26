@@ -111,29 +111,98 @@ step "the installer window is up"
     pause 5
 
 
-# PAGE 1 - LANGUAGE. `English` is the first row and already highlighted, so this only presses Select.
+# PAGES 1-3, EACH PRESSED ONCE AND EACH CONFIRMED BEFORE THE NEXT ONE IS TOUCHED.
 #
-# MEASURED: the button does not always take the first press - the window has just drawn and the click
-# lands while the row is still being laid out. The second press is harmless if the first worked: by then
-# the page is the keyboard list and (1344,691) is its `Select` too, so a doubled press advances at most
-# one page and never skips one.
-step "language - select"
-  input 1344 691
-  settle 6
-
-step "language - select again, for a press the first page may not have taken"
+# THE DOUBLED PRESS WAS WRONG AND THE RECORDING SAYS SO: (1344,691) is `Select` on all three of these
+# pages, so a second press was expected to advance at most one page. It does not - on page 2 the click
+# lands on the LIST and selects a row, and the local run came back from the keyboard page showing
+# `English (Colemak-DH ISO)` highlighted where `English (US)` had been. The layout that reached the
+# disk would have been Colemak.
+#
+# SO EACH PAGE IS PRESSED ONCE AND THEN READ: the next page's own heading is the proof that the press
+# landed, which is the same shape every other CachyOS/Calamares walk here uses.
+# THE LANGUAGE IS TWO PAGES, NOT ONE, AND THE FIRST PRESS ONLY OPENS THE SECOND.
+#
+# MEASURED on the local run: pressing `Select` on `Select a Language` does not reach the keyboard page.
+# It reaches `English`'s REGION list - heading `Languages` / `English`, rows `United States`,
+# `Antigua and Barbuda`, `Australia` ... - and `United States` is the preselected first row, which is the
+# locale this repository wants. A second press takes that row and moves on.
+step "language - select english"
   input 1344 691
   settle 8
 
 
-# PAGE 2 - KEYBOARD LAYOUT, `English (US)` preselected. THE `Select` HERE OPENS THE VARIANT LIST.
-step "keyboard - select"
+step "the region list is up"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name reg
+    until
+      bind there
+      source reg
+      mode text
+      rect [610, 215, 900, 290]
+      rect_at [1920, 1080]
+      scale 2
+      words [[United, States], [Antigua]]
+    max 20
+    pause 4
+
+
+step "region - select united states"
   input 1344 691
   settle 8
 
 
-# PAGE 3 - THE LAYOUT'S VARIANTS, `Default` preselected.
-step "keyboard variants - select"
+step "the keyboard page is up"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name kb
+    until
+      bind there
+      source kb
+      mode text
+      rect [590, 430, 1000, 490]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Keyboard, Layout]]
+    max 20
+    pause 4
+
+
+step "keyboard - select, which opens the layout variants"
+  input 1344 691
+  settle 8
+
+
+step "the variants page is up"
+  repeat
+    do
+      item
+        settle 4
+      item "read the screen"
+        read
+          name var
+    until
+      bind there
+      source var
+      mode text
+      rect [600, 215, 1300, 320]
+      rect_at [1920, 1080]
+      scale 2
+      words [[Default], [Cherokee]]
+    max 20
+    pause 4
+
+
+step "variants - select"
   input 1344 691
   settle 8
 

@@ -177,13 +177,18 @@ step "the keyboard page arrives after location"
         read
           name at_keyboard
     until
+      # THE REGION WAS A 104x61 BOX FROM THE OLD, SMALLER CALAMARES WINDOW, AND `scale 1` COULD NOT
+      # READ IT. MEASURED on the 261123 media (run 45754119308, recording at t=540s): the window is
+      # x 400..1455, y 273..864, and the page's own caption - `Keyboard model:` beside
+      # `Generic 105-key PC` - is drawn at [405,525,700,570] on the full frame. The reader answered
+      # `storm` for the old box, which is the noise it produces from a strip of bezel.
       bind here
       source at_keyboard
       mode text
-      rect [393, 511, 497, 572]
+      rect [405, 525, 700, 570]
       rect_at [1920, 1080]
-      scale 1
-      words [[Keyboard], [Layout]]
+      scale 2
+      words [[Keyboard, model]]
     max 30
 
 
