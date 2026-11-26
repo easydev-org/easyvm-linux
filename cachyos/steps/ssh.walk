@@ -424,7 +424,7 @@ step "guest tcp counters for a dropped SYN"
 # counters and nstat lines above answer the same question without a capture.)
 
 
-step "wait for sshd"step "wait for sshd"step "wait for sshd"
+step "wait for sshd"
   repeat
     until machine_ssh
     max 60
