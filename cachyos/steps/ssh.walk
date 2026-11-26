@@ -408,17 +408,23 @@ step "guest rx/tx packet counters on its NIC"
   settle 2
   terminal_wait 0
 
-step "read what the guest saw on its own NIC"
-  # THE FINAL SPLIT: did qemu deliver the host's SYN to the guest's virtio NIC at all?
-  # `tcpdump -i enp0s6 'tcp port 22'` for 14 s in the guest, started by the step above; the host
-  # probe fires every 10 s, so one SYN lands inside the window if delivery works. A SYN here = the
-  # guest kernel got the frame and sshd failed to answer (guest/socket); an empty capture here, with
-  # the host-side pcap showing the SYN leaving qemubr0 for the right MAC, means the frame never
-  # reaches the guest - a qemu/tap delivery fault.
-  run "sleep 2; echo ---GUEST-SAW---; cat /tmp/gcap.txt 2>&1 | head -12"
-  timeout 30
+# THE NIC PROVED IT DELIVERED: RX errors 0, dropped 0. So the SYN from the host arrives at
+# enp0s6 cleanly and the guest does not answer it. A SYN that reaches a listening socket and gets no
+# SYN-ACK is either dropped by the TCP input path (syncookies off + a full SYN queue, or a listen
+# backlog of zero) or accepted and the reply dropped before the wire. These counters name which:
+# TcpExtListenDrops / TCPReqQFullDrop climb on a full accept queue; TcpInErrs / TcpExtTCPHPHits tell
+# the other story. One short, fish-safe line.
+step "guest tcp counters for a dropped SYN"
+  run "echo {{ password }} | sudo -S -p '' nstat -az | grep -iE 'ListenDrops|ReqQFullDrop|InErrs|InSegs|OutSegs|AttemptFails|SyncookiesSent|ListenOverflows'"
+  settle 3
+  terminal_wait 0
 
-step "wait for sshd"step "wait for sshd"
+# (the guest-side tcpdump step that used to sit here never ran: its backgrounded tcpdump was started
+# with `sudo` inside a fish line and left no /tmp/gcap.txt. Removed rather than fixed - the RX/TX
+# counters and nstat lines above answer the same question without a capture.)
+
+
+step "wait for sshd"step "wait for sshd"step "wait for sshd"
   repeat
     until machine_ssh
     max 60
