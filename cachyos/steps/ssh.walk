@@ -261,8 +261,31 @@ step "open the terminal"
 
 
 step "keep the screen on"
+  # `xset` DOES NOT STOP KDE'S OWN LOCKER, AND THIS GUEST LOCKS ITSELF.
+  #
+  # MEASURED in the lab pod on this exact disk: after boot the desktop goes to the KDE lock screen
+  # on its own idle timer, and every keystroke typed afterwards lands on the password field of a
+  # locked session - the walk's `run` commands do nothing, silently. `xset s off/-dpms/noblank`
+  # disables the X screen-blanker but not kscreenlocker, so it does not prevent that.
+  #
+  # THIS IS THE MOST LIKELY REASON ssd NEVER COMES UP IN CI: the `run` that installs openssh, or
+  # the `run` that enables sshd, typed into a locked screen and never executed. `systemctl
+  # is-active sshd` is also a `run`, so the log never showed its output - the stage only saw the
+  # host probe failing, which looks exactly like a network fault and sent this session chasing ARP,
+  # MASQUERADE, FORWARD, iptables backends and netfilter for many rounds. The proof it is not the
+  # network: through qemu-guest-agent (which does not touch the screen) the SAME disk installs and
+  # starts sshd, and then BOTH 172.30.0.2:22 (direct) and 172.30.0.1:2222 (DNAT) CONNECT from the
+  # host, on this image.
+  #
+  # SO BOTH LOCKERS ARE DISABLED: kscreenlocker via its config, and the idle-timeout that triggers
+  # it; xset stays as the X-level belt.
   run "xset s off; xset -dpms; xset s noblank"
-  settle 5
+  settle 3
+  terminal_wait 0
+
+step "disable kde's screen locker and its idle timeout"
+  run "mkdir -p ~/.config; printf '[Daemon]\nAutolock=false\nLockOnResume=false\n' > ~/.config/kscreenlockerrc; printf '[General]\nNoLockscreen=true\n' > ~/.config/kscreenlockerrc.d 2>/dev/null; kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false 2>/dev/null; echo LOCKER_OFF"
+  settle 4
   terminal_wait 0
 
 
@@ -453,6 +476,18 @@ step "sshd still listening after the flush"
   settle 2
   terminal_wait 0
 
+
+# THE GROUND TRUTH, FROM qemu-guest-agent RATHER THAN THE SCREEN.
+#
+# Every `run` in this file types into Konsole. If the session is locked - or the terminal lost
+# focus - the command is typed and never executes, and the walk cannot tell. `qga:` does not touch
+# the screen: it asks the guest agent, which is a channel to the guest kernel. If sshd is running
+# here but the host probe fails, the fault is the network. If sshd is NOT running here, the earlier
+# `run` steps that were supposed to install and start it did nothing, and the host probe was right
+# to fail - the fault is the screen, not the wire.
+step "ask the guest agent whether sshd is really up"
+  qga "info"
+  timeout 60
 
 step "wait for sshd"
   repeat
