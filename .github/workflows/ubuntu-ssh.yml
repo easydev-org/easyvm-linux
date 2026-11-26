@@ -43,6 +43,23 @@ jobs:
     uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.4
     secrets: inherit
     with:
+      # THE DAEMON'S SSH CLIENT NEEDS THE PASSWORD AS A FLAG.
+      #
+      # MEASURED (lab pod, this image, this disk): `walk.File` has NO password field -
+      # `password admin1` only feeds `{{ password }}` substitution - and stage.yml passes
+      # `--password` to `easyvm run` only when this input is non-empty. Without it `easyvm
+      # run`'s own default ("admin") reaches the daemon and overrides nothing but IS what
+      # the ssh client dials with, while the disk's account is `admin1`. The result is a
+      # machine whose sshd is active and listening, whose guest-side commands all worked,
+      # and whose every probe and `ssh:` step answers
+      #
+      #	ssh: handshake failed: unable to authenticate, attempted methods [none password],
+      #	no supported methods remain
+      #
+      # - reproduced in the pod with the engine's own client: `admin1` succeeded and the
+      # default failed on the very same guest. anduinos and pearos pass because their
+      # workflows already spell it out.
+      password: "admin1"
       image_repository: easydev-org/easyvm
       image_tag: v0.0.4
       disk_gb: "20"
