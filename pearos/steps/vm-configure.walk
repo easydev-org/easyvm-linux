@@ -109,7 +109,20 @@ step "prove the guest agent is running"
 # THE FILE IS WRITTEN RATHER THAN EDITED because a drop-in is the supported way and an edit to
 # `sddm.conf` itself is overwritten by the next package upgrade.
 step "turn on automatic login, because an unattended client cannot type a password"
-  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' sh -c '\n  mkdir -p /etc/sddm.conf.d\n  cat > /etc/sddm.conf.d/10-easyvm-autologin.conf <<CONF\n[Autologin]\nUser=%s\nSession=plasma\nRelogin=true\nCONF\n  printf \"autologin for %s\\n\" \"{{ user }}\"' 2>&1 | tail -3\n"
+  # `User=%s` WAS A FORMAT LEFT UNFILLED, AND IT WROTE THE LITERAL `%s` INTO THE FILE.
+  #
+  # MEASURED on run 45775651987, step 13 of 23: the file this step writes reads
+  #
+  #	[Autologin]
+  #	User=%s
+  #	Session=plasma
+  #	Relogin=true
+  #
+  # and the proof that follows greps `^User=vmuser$`, finds `User=%s`, and exits 1. The `%s` was
+  # meant for a `printf` format, but this is a `cat` heredoc - a heredoc does no format expansion, so
+  # `%s` stayed `%s`. The heredoc is unquoted, so the walk's own `{{ user }}` substitution DOES reach
+  # it; that is the value to write.
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' sh -c '\n  mkdir -p /etc/sddm.conf.d\n  cat > /etc/sddm.conf.d/10-easyvm-autologin.conf <<CONF\n[Autologin]\nUser={{ user }}\nSession=plasma\nRelogin=true\nCONF\n  printf \"autologin for %s\\n\" \"{{ user }}\"' 2>&1 | tail -3\n"
   timeout 120
 
 
