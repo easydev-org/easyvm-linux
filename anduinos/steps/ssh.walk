@@ -222,6 +222,28 @@ step "prove the file system is the one the installer was told to make"
   ssh "findmnt -no FSTYPE /"
 
 
-step "stop the machine"
-  stop kill
-  timeout 120
+# THE LEG MUST PUBLISH THE DISK IT PROVED, OR NOTHING DOWNSTREAM CAN CONTINUE.
+#
+# THIS FILE ENDED WITH `stop kill` AND NO `save`, and the cost was measured: run 45772653186
+# reported `success`, `push the disk` was SKIPPED, and the vm-configure dispatched on its tag
+# answered
+#
+#	=== manifest ghcr.io/easydev-org/easyvm-linux:linux-anduinos-ssh
+#	curl: (22) The requested URL returned error: 404
+#	  (no linux-anduinos-ssh in the package)
+#
+# A `stop kill` is a power cut: it publishes nothing, and a qcow2 that was not closed cleanly is the
+# worst possible input to compress. Every other ssh leg here ends the cachyos way - ask the guest to
+# power off, wait for the machine to stop, then save - and this is that ending.
+step "ask the guest to power off"
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' poweroff"
+  timeout 300
+
+
+step "wait for the machine to stop"
+  wait_until stopped
+  timeout 300
+
+
+step "publish the disk"
+  save "{{ out }}"

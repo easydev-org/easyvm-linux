@@ -482,6 +482,21 @@ step "the account the wizard made is the one that answers"
   ssh "test \"$(id -un)\" = '{{ user }}'"
 
 
-step "stop the machine"
-  stop kill
-  timeout 120
+# THE LEG MUST PUBLISH THE DISK IT PROVED, OR NOTHING DOWNSTREAM CAN CONTINUE.
+#
+# `stop kill` WAS THE ENDING HERE AND IT PUBLISHED NOTHING: `save` was never called, so `push the
+# disk` was skipped and the vm-configure leg had no tag to pull. The graceful ending is the one every
+# other ssh leg uses - ask the guest to power off, wait for the machine to stop, then save - and it is
+# also the only safe way to read a qcow2 into `compress`.
+step "ask the guest to power off"
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' poweroff"
+  timeout 300
+
+
+step "wait for the machine to stop"
+  wait_until stopped
+  timeout 300
+
+
+step "publish the disk"
+  save "{{ out }}"
