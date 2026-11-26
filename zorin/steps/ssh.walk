@@ -411,7 +411,7 @@ step "kill packagekit, which is what raises the panel"
 
 step "install openssh-server, with no question it could stop at"
   run "sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confnew openssh-server"
-  settle 120
+  settle 300
   type_gap 0.09
 # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
 #
@@ -421,7 +421,11 @@ step "install openssh-server, with no question it could stop at"
 
 
 step "wait for the package to land its config"
-  run "sudo sh -c 'i=0; while [ $i -lt 40 ] && [ ! -f /etc/ssh/sshd_config ]; do i=$((i+1)); sleep 5; done; test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING'"
+  # 600 s, NOT 200. MEASURED on run 45800977221: `apt-get` reported `Fetched 8,905 kB in 2m24s
+  # (61.8 kB/s)` and the 40 x 5 s = 200 s wait still printed STILL_MISSING, because at 61 kB/s the
+  # server package and its dependencies are still arriving after three minutes. The file is still the
+  # fact; the ceiling was just too low for this mirror.
+  run "sudo sh -c 'i=0; while [ $i -lt 120 ] && [ ! -f /etc/ssh/sshd_config ]; do i=$((i+1)); sleep 5; done; test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING'"
   settle 20
   type_gap 0.09
 
