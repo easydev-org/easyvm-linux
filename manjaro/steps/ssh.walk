@@ -88,15 +88,18 @@ step "the greeter is drawn"
       bind up
       source greeter
       mode text
-      # `scale 2` WAS MAKING THE READER RETURN TWO CHARACTERS.
+      # TWO MEASURED FAULTS, BOTH ABOUT THE READER, NOT THE SCREEN.
       #
-      # MEASURED on run 45938665592: this step's whole budget reported `"ee"`. The frame at 120 s is
-      # a clean SDDM screen - "VM User" over an avatar at (960,460), a Password field at (940,629),
-      # Sleep/Restart/Shut Down/Other along the bottom - so the words are there and large. The
-      # `scale 2` upscaling was the difference: the same reader on the same frame returns "VM User"
-      # and "Password" at scale 1 (kubuntu's greeter step, passing, uses no scale at all). The rect
-      # is widened to the whole screen, because the labels span it and there is nothing else to find.
-      rect [0, 0, 1920, 1080]
+      # run 45938665592: with `scale 2` this step's whole budget reported `"ee"`.
+      # run 45940028937: with `rect [0,0,1920,1080]` and no scale it reported
+      #   "Image too small to scale!! (1x36 vs min width of ...)" - the full-frame rect produced a
+      #   1x36 strip to read, so the rect and the scaler were fighting each other.
+      #
+      # The frame at 120 s of the first run is an ordinary SDDM screen: "VM User" over the avatar at
+      # (960,460), the Password field at (940,629), Sleep / Restart / Shut Down / Other along the
+      # bottom. A rect that encloses exactly those three bands, no scaling, is what the passing
+      # kubuntu greeter step uses - so this is that rect.
+      rect [700, 380, 1250, 880]
       rect_at [1920, 1080]
       words [[vm, user], [password], [shut, down]]
     max 60
