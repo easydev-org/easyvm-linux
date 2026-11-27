@@ -196,23 +196,15 @@ step "enable ssh at boot"
   terminal_wait 0
 
 
-step "prove ssh was enabled, by the word it printed"
-  repeat
-    do
-      item
-        settle 3
-      item "read the terminal"
-        read
-          name tty2
-    until
-      bind up
-      source tty2
-      mode text
-      rect [0, 300, 1920, 1080]
-      rect_at [1920, 1080]
-      words [[SSH_ENABLED]]
-    max 40
-
+# THE ENABLE IS PROVEN BY `wait for sshd` BELOW, NOT BY A WORD ON A SCROLLING SCREEN.
+#
+# MEASURED on run 45935512565: this sentinel waited its whole budget. The enable line ends with a
+# `for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee ...` loop and `ufw disable`,
+# which write a dozen lines; `SSH_ENABLED` scrolls off the visible terminal before the 3-second read
+# lands. That is a problem with the INSTRUMENT, not with the command - the same command already ran
+# on every earlier attempt, and `wait for sshd` is a probe of the guest, not a reading of its screen.
+#
+# So this step is removed entirely and the enable's effect is judged by `machine_ssh`.
 
 step "wait for sshd"
   repeat
