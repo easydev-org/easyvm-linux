@@ -182,7 +182,7 @@ step "keep the screen on and unlock sudo, before anything needs it"
   # THIS GUEST HAS NO `xset`: its blanking is Xfce's own DPMS. MEASURED on run
   # 45941267442's final second - a BLACK FRAME, the display switched off during the wait.
   # `xfconf-query` turns dpms and blanking off; `xset` stays as a best-effort first choice.
-  run "printf '%s\\n' {{ password }} | sudo -S -v; (command -v xset >/dev/null && xset s off && xset -dpms && xset s noblank) || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled -n -t bool -s false 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -n -t int -s 0 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-on-ac-sleep -n -t int -s 0 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-on-ac-off -n -t int -s 0 2>/dev/null || true; echo SCREEN_KEPT_ON"
+  run "printf '%s\\n' {{ password }} | sudo -S -v; echo SUDO_UNLOCKED"
   settle 6
   terminal_wait 0
 
@@ -216,7 +216,7 @@ step "install openssh"
   # partial-upgrade trap: `-Sy` refreshes the index and then resolves against the newest packages, and
   # this disk's openssl is older than what the mirror carries. `--ignore openssl*` installs openssh
   # against the packages the disk already has.
-  run "(command -v xset >/dev/null && xset s off && xset s noblank) || true; sudo -n pacman -S --noconfirm --needed --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
+  run "xset s off 2>/dev/null; xset s noblank 2>/dev/null; sudo -n pacman -S --noconfirm --needed --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
   settle 45
   terminal_wait 0
 
