@@ -88,10 +88,17 @@ step "the greeter is drawn"
       bind up
       source greeter
       mode text
-      rect [740, 470, 1340, 770]
+      # `scale 2` WAS MAKING THE READER RETURN TWO CHARACTERS.
+      #
+      # MEASURED on run 45938665592: this step's whole budget reported `"ee"`. The frame at 120 s is
+      # a clean SDDM screen - "VM User" over an avatar at (960,460), a Password field at (940,629),
+      # Sleep/Restart/Shut Down/Other along the bottom - so the words are there and large. The
+      # `scale 2` upscaling was the difference: the same reader on the same frame returns "VM User"
+      # and "Password" at scale 1 (kubuntu's greeter step, passing, uses no scale at all). The rect
+      # is widened to the whole screen, because the labels span it and there is nothing else to find.
+      rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
-      scale 2
-      words [[password], [vmuser]]
+      words [[vm, user], [password], [shut, down]]
     max 60
 
   # THE GREETER IS LOGGED IN WHERE IT STANDS, BECAUSE THE VIRTUAL CONSOLE DOES NOT SWITCH HERE.
