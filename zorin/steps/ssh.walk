@@ -328,6 +328,7 @@ step "unlock sudo once for this session"
   # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
   # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
   run "printf '%s\\n' {{ password }} | sudo -S -v"
+  terminal_wait 0
   settle 5
   type_gap 0.06
 
@@ -450,6 +451,7 @@ step "refresh sudo so the install asks for nothing"
   # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
   # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
   run "printf '%s\\n' {{ password }} | sudo -S -v"
+  terminal_wait 0
   settle 4
   type_gap 0.09
 
