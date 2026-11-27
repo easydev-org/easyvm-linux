@@ -617,9 +617,19 @@ step "enable and start ssh in one request"
   settle 3
 
 
-step "start ssh, with the socket"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket 2>/dev/null; systemctl is-active ssh || true"
-  settle 3
+# NO `2>/dev/null` HERE - THAT IS WHAT HID THE REASON FOR FIVE RUNS.
+#
+# MEASURED on run 46022084555's recording at 1400 s: typing is finally CLEAN (type_gap 0.15
+# fixed the doubled characters), `systemctl start ssh` prints NO error, and
+# `systemctl is-active ssh` then answers `inactive` with NO_LISTENER. The start was
+# refused or the unit exited at once, and every `2>/dev/null` in this block threw
+# away the sentence that said which.
+#
+# This step now shows systemctl's own output, the unit's state and its journal, so the
+# next run names the failure instead of "inactive".
+step "start ssh, with the socket, showing what systemctl says"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start ssh.socket; systemctl start ssh; echo ---; systemctl is-active ssh ssh.socket; echo ---; systemctl status ssh --no-pager -l 2>&1 | head -12; echo ---; journalctl -u ssh --no-pager -n 10 2>&1'"
+  settle 5
 
 
 step "take the firewall down"
