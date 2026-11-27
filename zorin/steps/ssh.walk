@@ -661,64 +661,36 @@ step "resend the enable if the word never came, with the modal gone"
 step "prove the unit is up before waiting on a port"
   run "systemctl is-active ssh; ss -lnt 2>/dev/null | grep \":22 \" || echo NO_LISTENER"
   settle 6
-step "sshd authenticates against shadow, because this image ships no PAM service file"
-  # THE DROP-IN IS NOT ENOUGH ON ITS OWN. A distro whose /etc/ssh/sshd_config ships no
-  # `Include /etc/ssh/sshd_config.d/*.conf` never opens 99-vm.conf - MEASURED on endeavour-ssh, where
-  # the drop-in was written and correct and the daemon still authenticated exactly as before. So the
-  # same three settings are written into the MAIN file, by REPLACING the commented lines the package
-  # ships rather than appending beside them: `^#?\s*Key` matches both forms, and sshd reads the FIRST
-  # value it sees.
-  # NO `${...}` IN A `run:` LINE - THE WALK TEMPLATE SUBSTITUTES IT AWAY.
-  #
-  # MEASURED on run 45934793464, at 600 s: the terminal shows
-  #
-  #	sudo sh -c 'i=0; while [ $i -lt 120 ] ... do i=$((i+1)); ...'
-  #	sh: 1: Syntax error: "do" unexpected
-  #
-  # and the same class of command here, written with `${k}` / `${v}` / `${kv%%:*}`, reached the guest
-  # with those expansions EMPTY - the walk's own variable pass consumes `${...}` before the shell ever
-  # sees it. So the three settings are written by three literal sed lines, with no shell variables at
-  # all, and the same goes for the dummy-proof proof: `sshd -T` output, which needs none either.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh/sshd_config.d; echo UsePAM no > /etc/ssh/sshd_config.d/99-vm.conf; echo PasswordAuthentication yes >> /etc/ssh/sshd_config.d/99-vm.conf; echo KbdInteractiveAuthentication no >> /etc/ssh/sshd_config.d/99-vm.conf; cat /etc/ssh/sshd_config.d/99-vm.conf'"
-  settle 8
-# `--no-block` RETURNED BEFORE THE RESTART FINISHED, SO THE DROP-IN MAY NOT HAVE BEEN READ YET.
+# sshd IS ALREADY UP AND LISTENING - DO NOT TOUCH ITS CONFIG, AND DO NOT RESTART IT.
 #
-# MEASURED on run 45916730145: the `wait for sshd` after this step spent its whole budget on
-# `no route to host`. A blocking restart plus the is-active line is the version whose result can be
-# read, and the sentinel makes the step fail here if the keystrokes went somewhere else.
-# `systemctl restart ssh` ON A DESKTOP SESSION RAISES POLKIT, AND THE SCREEN GOES BLANK.
+# MEASURED on run 46041880432's recording at 1900 s, on the terminal:
 #
-# MEASURED on run 45925826195 step 36: the sentinel for this restart read "" - an EMPTY screen - for
-# forty tries. A blocking `restart ssh` on this image pulls in polkit's agent, which draws its own
-# modal over the session; the terminal is not the focused window afterwards, so nothing this step
-# echoes is readable. `reload` reads the drop-in without stopping the listener, and needs no policy
-# decision - the ListeningPort and auth settings in sshd_config.d are read on reload.
+#	$ systemctl is-active ssh; ss -lnt | grep ":22 "
+#	active
+#	LISTEN 0 4096 0.0.0.0:22 0.0.0.0:*
+#	LISTEN 0 4096    [::]:22    [::]:*        <- sshd UP AND LISTENING
+#	$ echo PasswordAuthentication yes > .../99-vm.conf
+#	PPPpasswordAuthentication yes            <- caught the typing DOUBLING again
+#	$ sudo systemctl restart ssh
+#	Job for ssh.service failed because the control process exited with error code.
+#	failed
+#	NO_LISTENER                              <- the restart KILLED a working sshd
 #
-# It is also OPTIONAL on purpose: `enable --now ssh` two steps up has already started a listener that
-# answers. This step improves the config the listener is using; it must not be able to fail a stage
-# whose sshd is already up, which is exactly what a blank screen made it do.
-# `reload` DOES NOT START A STOPPED sshd - `restart` DOES.
+# So the daemon was healthy and this file's own config step broke it: a doubled
+# capital (`PPPpasswordAuthentication`) is an unknown directive, and `restart ssh`
+# then took the listener down for the rest of the stage. The whole point of the
+# drop-in was `PasswordAuthentication yes`, and sshd on this image ALREADY has it
+# (the image's own sshd_config ships `PasswordAuthentication yes` - the probe's
+# `unable to authenticate` on earlier runs was the missing HOST KEYS, which the
+# step above now makes).
 #
-# MEASURED on run 45956459330's recording at 1400 s: the terminal shows `active` and
-# `LISTEN 0 4096 0.0.0.0:22` on the same screen as `SSHD_RELOADED` - so sshd DID come up, but only
-# by the END of the stage, after `wait for sshd` had already spent its fifteen minutes on
-# `no route to host` / `Connection refused`. `reload` re-reads the config of a RUNNING daemon; if the
-# unit was still not started (policy-rc.d had refused it earlier), reload is a no-op and the daemon
-# appears only when something later starts it. `restart` starts it either way, and is what this
-# step must use now that the config is known good.
-step "restart ssh so the drop-in is read AND the daemon is running"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart ssh 2>&1 | tail -2; sleep 3; systemctl is-active ssh; ss -lnt | grep ':22 ' || echo NO_LISTENER"
-  settle 6
-# THE PROOF IS THE PROBE, NOT THE SCREEN - AND THIS GUEST'S SCREEN GOES BLANK.
-#
-# MEASURED on run 45932132419: every screen-read sentinel after `enable`/`reload` returned "" for its
-# whole budget. Frame after frame is empty, because a `systemctl` on this image raises polkit's agent
-# or blanks the session, and neither leaves a readable terminal. Reading the screen was the wrong
-# instrument here: `machine_ssh` is the daemon's own ssh probe against 172.30.0.1:2222, it needs
-# nothing from the display, and it is the thing the stage actually cares about.
-#
-# The enable line has already run by this point (`enable --now ssh` plus a resend), so this waits for
-# its effect rather than for a word about it.
+# NOTHING IS WRITTEN HERE AND NOTHING IS RESTARTED. The step only reports what the
+# daemon is doing, so a healthy sshd cannot be killed by a typo in this file.
+step "the daemon that is already listening is left alone"
+  run "systemctl is-active ssh; ss -lnt | grep ':22 ' || echo NO_LISTENER"
+  settle 3
+
+
 step "wait for sshd"
   repeat
     until machine_ssh
