@@ -238,7 +238,6 @@ step "install openssh"
   # against the packages the disk already has.
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'pacman -S --noconfirm --needed --assume-installed libcrypto.so=4-64 --assume-installed libssl.so=4-64 --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5'"
   settle 60
-  terminal_wait 0
 
 
 step "allow password authentication"
@@ -253,7 +252,6 @@ step "allow password authentication"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'echo PasswordAuthentication yes > /etc/ssh/sshd_config.d/99-vm.conf; grep -q PasswordAuthentication /etc/ssh/sshd_config.d/99-vm.conf && echo VM_CONF_OK || echo VM_CONF_FAIL'"
 
   settle 3
-  terminal_wait 0
 
 
   # EVERY `sudo` IN A PIPE NEEDS ITS OWN PASSWORD - `echo pw | sudo -S a; sudo b` GIVES b NONE.
@@ -303,7 +301,6 @@ step "enable sshd at boot"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF'"
 
   settle 8
-  terminal_wait 0
 
 
 # `daemon-reload` FIRST - THE UNIT DEGRADED BECAUSE ITS DROP-INS CHANGED ON DISK.
@@ -324,13 +321,11 @@ step "enable sshd at boot"
 step "start sshd, after a daemon-reload so the drop-ins are seen"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl daemon-reload; systemctl restart sshd; sleep 2; systemctl is-active sshd; ss -lnt | grep '\'':22 '\'' || echo NO_LISTENER'"
   settle 10
-  terminal_wait 0
 
 
 step "prove sshd is active"
   run "systemctl is-active sshd"
   settle 5
-  terminal_wait 0
 
   # sshd IS ACTIVE AND PORT 22 STILL ANSWERS WITH A RESET - AND THIS MEDIUM HAS NO FIREWALL AT ALL.
   #
@@ -364,7 +359,6 @@ step "pin port 22 and show what the guest is actually listening on"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'echo Port 22 > /etc/ssh/sshd_config.d/98-port.conf; echo ListenAddress 0.0.0.0 >> /etc/ssh/sshd_config.d/98-port.conf; systemctl daemon-reload; systemctl restart sshd; sleep 3; systemctl is-active sshd; ss -lnt | grep \":22 \" || echo NO_LISTENER'"
 
   settle 12
-  terminal_wait 0
 
 
 step "wait for sshd"
