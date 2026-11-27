@@ -516,49 +516,10 @@ step "enable and start ssh in one request"
 # SO EACH READ IS PRECEDED BY A CLEAR: Escape returns focus to the terminal if the modal is up, and
 # Enter answers nothing. A modally-blocked screen answers "" - which is the empty string this step
 # reported - and the loop keeps going rather than failing on the first blank frame.
-step "prove the enable actually ran, by the word it printed"
-  repeat
-    do
-      item
-        input esc
-        settle 2
-      item "read the terminal"
-        read
-          name tty
-    until
-      bind up
-      source tty
-      mode text
-      rect [0, 300, 1920, 1080]
-      rect_at [1920, 1080]
-      words [[FIREWALL_OFF]]
-    max 40
-  optional true
-
-
 step "resend the enable if the word never came, with the modal gone"
   run "sudo systemctl enable --now --no-block ssh; echo FIREWALL_OFF; systemctl is-active ssh"
   settle 8
   type_gap 0.09
-
-
-step "prove the resend ran, by the word it printed"
-  repeat
-    do
-      item
-        input esc
-        settle 2
-      item "read the terminal"
-        read
-          name tty3
-    until
-      bind up
-      source tty3
-      mode text
-      rect [0, 300, 1920, 1080]
-      rect_at [1920, 1080]
-      words [[FIREWALL_OFF]]
-    max 30
 
 
 step "prove the unit is up before waiting on a port"
@@ -601,10 +562,20 @@ step "reload so the drop-in is read, without stopping the listener"
   type_gap 0.09
 
 
+# THE PROOF IS THE PROBE, NOT THE SCREEN - AND THIS GUEST'S SCREEN GOES BLANK.
+#
+# MEASURED on run 45932132419: every screen-read sentinel after `enable`/`reload` returned "" for its
+# whole budget. Frame after frame is empty, because a `systemctl` on this image raises polkit's agent
+# or blanks the session, and neither leaves a readable terminal. Reading the screen was the wrong
+# instrument here: `machine_ssh` is the daemon's own ssh probe against 172.30.0.1:2222, it needs
+# nothing from the display, and it is the thing the stage actually cares about.
+#
+# The enable line has already run by this point (`enable --now ssh` plus a resend), so this waits for
+# its effect rather than for a word about it.
 step "wait for sshd"
   repeat
     until machine_ssh
-    max 60
+    max 90
     pause 10
 
 
