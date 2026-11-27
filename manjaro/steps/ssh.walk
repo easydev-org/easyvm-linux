@@ -166,9 +166,19 @@ step "open the terminal"
   # first thing typed after the chord is the command that matters.
 
 step "unlock sudo once for this session"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
-  settle 4
-  terminal_wait 0
+  # `run:` TYPES THE LINE, SO THE PASSWORD GOES IN AS THE NEXT LINE - THE ONLY FORM THAT WORKS ON
+  # BOTH zsh AND bash WITHOUT A `printf` ESCAPE.
+  #
+  # MEASURED on run 45959727296's recording at 450 s: manjaro's terminal is FIFTEEN lines of
+  # `pipe quote>`, because `printf '%s\\n' ...` reached zsh as `printf '%s` followed by a real
+  # newline - the `\\n` was consumed by the walk, the single quote never closed, and zsh sat in
+  # continuation mode for the rest of the stage. zsh spells that prompt `pipe quote>`, which is why
+  # this was invisible as "the same bug as zorin".
+  #
+  # `sudo -S` reads one line from stdin. Typing the password as the NEXT line gives it that line,
+  # with no escape to be eaten, on zsh or bash.
+  input text "{{ password }}"
+  settle 2
 
 
 step "install openssh"
@@ -228,7 +238,7 @@ step "unlock sudo for the whole stage, once"
   # `type_gap 0.09`-style pacing that sudo's own read can cut short - and the first attempt also
   # raises the "lecture" block, which delays the read further. `echo pw | sudo -S -v` hands the
   # password over as a complete line from stdin, which is what every other Linux stage here does.
-  run "printf '%s\\n' {{ password }} | sudo -S -v 2>&1 | tail -2; sudo -n true && echo SUDO_UNLOCKED || echo SUDO_LOCKED"
+  run "sudo -S -v && sudo -n true && echo SUDO_UNLOCKED"
   type_gap 0.15
   settle 5
 
@@ -254,18 +264,18 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # never shown because `tail -6` kept only the last lines. This version re-unlocks with the password
   # in the same line (so it cannot depend on an earlier timestamp), uses the absolute path, and
   # prints each step's own status.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh && echo MKDIR_OK; /usr/bin/ssh-keygen -A 2>&1 | tail -3; ls -l /etc/ssh/ssh_host_ed25519_key 2>&1; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
+  run "sudo -n sh -c 'mkdir -p /etc/ssh && echo MKDIR_OK; /usr/bin/ssh-keygen -A 2>&1 | tail -3; ls -l /etc/ssh/ssh_host_ed25519_key 2>&1; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
   settle 10
 
 
 step "enable sshd at boot"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 
 
 step "start sshd"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart sshd 2>&1 | tail -3"
+  run "sudo -n systemctl restart sshd 2>&1 | tail -3"
   settle 10
   terminal_wait 0
 
