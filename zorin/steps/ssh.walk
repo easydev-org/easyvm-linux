@@ -475,8 +475,19 @@ step "wait for the package to land its config"
   # fact; the ceiling was just too low for this mirror.
   # THE `$` FORM OF THIS LOOP REACHED THE GUEST MANGLED - see the note at the settings step below.
   # A bounded wait written as a fixed list of sleeps has no variables to lose.
-  run "for n in 1 2 3 4 5 6 7 8 9 10 11 12; do test -f /etc/ssh/sshd_config && break; sleep 10; done; test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING"
-  settle 20
+  # NO `for ...; do ...; done` IN A `run:` - THE WALK MANGLES IT INTO A SYNTAX ERROR.
+  #
+  # MEASURED on run 45973849707's recording at 700 s:
+  #	$ for n in 1 2 3 4 5 6 7 8 9 10 11 12; do test -f /etc/ssh/sshd_config && break; sleep 10; done; ...
+  #	bash: syntax error near unexpected token `do'
+  # and the next line shows `echo NO_SSH_UNITudo systemctl stop packagekit` - two commands joined,
+  # because the syntax error left the shell mid-line. (The FOR loop's semicolons survive in some
+  # lines and not others; that is the tell.)
+  #
+  # `test -f` is enough: the install step above already prints `ls -l /etc/ssh/sshd_config` and that
+  # frame shows the file exists with 3517 bytes. A wait is unnecessary; a report is what is useful.
+  run "test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING"
+  settle 3
   type_gap 0.09
 
 
