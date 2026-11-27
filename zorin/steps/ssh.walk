@@ -180,7 +180,6 @@ step "open the terminal"
 step "keep the screen on"
   run "xset s off; xset -dpms; xset s noblank"
   settle 5
-  terminal_wait 0
 # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
 #
 # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
@@ -336,14 +335,12 @@ step "unlock sudo once for this session"
 step "stop the updater that keeps raising the panel"
   run "sudo pkill -f update-notifier"
   settle 3
-  terminal_wait 0
   type_gap 0.06
 
 
 step "stop the software centre"
   run "sudo pkill -f gnome-software"
   settle 3
-  terminal_wait 0
   type_gap 0.06
 # `apt-get update` FIRST: this disk's index can point at a version the archive has replaced,
 # which answers 404 and reads like a network problem (measured on popos, same family).
