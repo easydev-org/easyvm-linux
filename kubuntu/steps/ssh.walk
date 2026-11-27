@@ -146,10 +146,18 @@ step "unlock sudo once for this session"
   terminal_wait 0
 
 
-step "install openssh-server"
-  run "sudo apt-get install -y openssh-server"
-  settle 60
-  terminal_wait 0
+# INSTALLED THROUGH THE GUEST AGENT, BECAUSE A `run:` HERE COULD NOT BE TRUSTED TO RUN AT ALL.
+#
+# MEASURED on run 45916721322: frames at 240 s and 320 s are IDENTICAL - Welcome Center open, clock
+# moving 4:33 -> 4:35 - while `apt-get install openssh-server` was typed. It has a password prompt and
+# a progress bar and needs no terminal window to be useful, so it goes to the guest kernel's own
+# command channel, where it returns apt's exit status and the installed version. `DEBIAN_FRONTEND` and
+# `-o Dpkg::Options` keep it from stopping on a prompt that nobody is there to answer.
+step "install openssh-server through the guest agent"
+  qga "exec"
+  argv ["/bin/sh", "-c", "DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold openssh-server 2>&1 | tail -5; echo ---; dpkg-query -W -f='${Status} ${Version}\n' openssh-server 2>&1"]
+  timeout 600
+  settle 3
 
 
 step "allow password authentication"
@@ -158,10 +166,18 @@ step "allow password authentication"
   terminal_wait 0
 
 
-step "enable ssh at boot"
-  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
-  settle 8
-  terminal_wait 0
+# THE SAME LESSON AS THE INSTALL ABOVE, AND THE PROOF IS THE SAME FRAME.
+#
+# `systemctl enable --now ssh` is four words and one listener. Typed into a window that is not a
+# terminal it does nothing, and the only symptom is a host probe saying "no route to host" ten
+# minutes later against a guest whose sshd was never started - which is exactly what this stage did.
+# Through the guest agent the enable, the firewall teardown and the listener check return their own
+# exit status, and `ss -lnt` is read back rather than assumed.
+step "enable ssh and take the firewall down, through the guest agent"
+  qga "exec"
+  argv ["/bin/sh", "-c", "systemctl enable --now ssh 2>&1 | tail -2; systemctl disable --now ufw >/dev/null 2>&1; ufw disable >/dev/null 2>&1; systemctl disable --now firewalld >/dev/null 2>&1; iptables -P INPUT ACCEPT 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-enabled ssh; ss -lnt 2>/dev/null | grep ':22 ' || echo NO_LISTENER"]
+  timeout 180
+  settle 3
 
 
 step "wait for sshd"
