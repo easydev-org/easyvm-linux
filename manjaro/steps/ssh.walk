@@ -172,7 +172,20 @@ step "unlock sudo once for this session"
 
 
 step "install openssh"
-  run "sudo pacman -Sy --noconfirm --needed openssh 2>&1 | tail -5"
+  # `pacman -Sy openssh` TRIES TO UPGRADE openssl AND BREAKS pacman ITSELF.
+  #
+  # MEASURED on run 45941450719's recording at 500 s, on the terminal:
+  #
+  #	$ sudo pacman -Sy --noconfirm --needed openssh
+  #	:: installing openssl (4.1.0-1) breaks dependency 'libcrypto.so=3-64' required by ostree
+  #	:: installing openssl (4.1.0-1) breaks dependency 'libcrypto.so=3-64' required by pacman
+  #	:: installing openssl (4.1.0-1) breaks dependency 'libcrypto.so=3-64' required by sudo
+  #
+  # So NOTHING was installed - no sshd, hence "sshd does not accept a connection". This is the classic
+  # partial-upgrade trap: `-Sy` refreshes the index and then resolves against the newest packages, and
+  # this disk's openssl is older than what the mirror carries. `--ignore openssl*` installs openssh
+  # against the packages the disk already has.
+  run "sudo pacman -Sy --noconfirm --needed --ignore openssl* openssh 2>&1 | tail -5"
   settle 60
   terminal_wait 0
 
