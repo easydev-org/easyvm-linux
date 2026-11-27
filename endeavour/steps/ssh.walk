@@ -153,6 +153,9 @@ step "the desktop is up after the login"
 step "close the welcome window, so the keyboard belongs to the desktop"
   input alt+f4
   settle 6
+
+
+step "close anything else that took the foreground, once more"
   input alt+f4
   settle 3
 
