@@ -94,13 +94,13 @@ step "close the welcome centre, which takes the keyboard"
   # fallback for a frame where Alt+F4 was swallowed. Both are tried, twice.
   do
     item
-      input alt+F4
+      input alt+f4
       settle 3
     item
       input 1270 251
       settle 3
     item
-      input alt+F4
+      input alt+f4
       settle 3
 
 
