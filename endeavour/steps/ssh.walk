@@ -123,6 +123,15 @@ step "greeter - submit"
 # application menu labelled `Whisker` on the installed system, and the live installer window the
 # reference shows is gone. Waiting for the word is the check that describes the state this file
 # actually needs - a logged-in desktop, not a particular picture of one.
+# THE DESKTOP IS RECOGNISED BY THE WINDOW A LOGGED-IN SESSION DRAWS, NOT BY ITS PANEL.
+#
+# MEASURED on run 45937524104's final frame: the desktop IS up - the Xfce panel is along the bottom,
+# the "DEAVOUROS TAN" wallpaper fills it - and "Welcome v26.7.2-1" is open in the middle with the
+# "After Install" tab. My first word check looked for `whisker`/`applications`/`terminal` in a 24 px
+# strip at the bottom and read "2m Pr OD": the panel's labels are too small and too dim for the
+# reader, while the window's title and tabs are large. Waiting for the window is the honest signal -
+# it is a program the INSTALL put there, so its presence is what "logged in, installed system" looks
+# like - and it is the thing that then has to be closed before the terminal can take the keyboard.
 step "the desktop is up after the login"
   repeat
     do
@@ -135,10 +144,17 @@ step "the desktop is up after the login"
       bind up
       source screen
       mode text
-      rect [0, 940, 700, 1080]
+      rect [550, 200, 1400, 800]
       rect_at [1920, 1080]
-      words [[whisker], [applications], [terminal]]
+      words [[after, install], [welcome], [general, info]]
     max 120
+
+
+step "close the welcome window, so the keyboard belongs to the desktop"
+  input alt+f4
+  settle 6
+  input alt+f4
+  settle 3
 
 
 step "open the terminal"
