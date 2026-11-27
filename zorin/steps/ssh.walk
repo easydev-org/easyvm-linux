@@ -479,6 +479,17 @@ step "allow password authentication"
 # tell - the next thing the stage heard was the host probe, an hour later, saying no route. Through
 # `qga: exec` the service is enabled, the firewall is taken down and the listener is CONFIRMED, all
 # with a status that is returned rather than hoped for.
+# `machine_qga` BEFORE THE FIRST `qga: exec`, for the reason measured on kubuntu's run 45922889731:
+# the host-side socket exists as soon as qemu starts it, and the guest's agent is not up yet, so the
+# first command answers "does not answer guest-ping: i/o timeout" and the step fails for a reason
+# that is not its own.
+step "wait for the guest agent to answer"
+  repeat
+    until machine_qga
+    max 60
+    pause 5
+
+
 step "enable ssh and take the firewall down, through the guest agent"
   qga "exec"
   argv ["/bin/sh", "-c", "systemctl enable ssh >/dev/null 2>&1; systemctl disable --now ufw >/dev/null 2>&1; ufw disable >/dev/null 2>&1; systemctl disable --now firewalld >/dev/null 2>&1; iptables -P INPUT ACCEPT 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-enabled ssh; echo FIREWALL_OFF"]

@@ -153,6 +153,20 @@ step "unlock sudo once for this session"
 # a progress bar and needs no terminal window to be useful, so it goes to the guest kernel's own
 # command channel, where it returns apt's exit status and the installed version. `DEBIAN_FRONTEND` and
 # `-o Dpkg::Options` keep it from stopping on a prompt that nobody is there to answer.
+# THE AGENT MUST ANSWER BEFORE `qga: exec` IS ASKED ANYTHING.
+#
+# MEASURED on run 45922889731: the install step failed with "the agent ... does not answer
+# `guest-ping`: read ... i/o timeout. The socket is open on the host side, so this is the GUEST's
+# agent: it is not installed, or not running, or it is busy". The socket exists as soon as qemu
+# starts it; the guest's qemu-guest-agent starts later. `machine_qga` is the fact for that, and
+# waiting on it is what keeps this step's verdict about apt rather than about the channel.
+step "wait for the guest agent to answer"
+  repeat
+    until machine_qga
+    max 60
+    pause 5
+
+
 step "install openssh-server through the guest agent"
   qga "exec"
   argv ["/bin/sh", "-c", "DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold openssh-server 2>&1 | tail -5; echo ---; dpkg-query -W -f='${Status} ${Version}\n' openssh-server 2>&1"]
