@@ -341,7 +341,11 @@ step "restart the machine"
   #
   # `acpi` ASKS THE GUEST TO POWER OFF and qemu exits with it, so the stop is a fact the daemon
   # reports rather than an inference, and the boot that follows is the machine coming back.
-  stop acpi
+  # `stop acpi` IS NOT A SHUTDOWN METHOD THIS BUILD HAS. MEASURED on run 45951867464:
+  # it failed with "`acpi` is not a shutdown method; the ones this build has are `kill`
+  # and `ssh`" - and that was AFTER sshd had come up (`machine_ssh: ssh_ready="true"`
+  # on that same run), so the whole ssh leg had passed and only this step failed.
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' poweroff"
   timeout 120
 
 step "after the restart - wait for qemu to exit"
