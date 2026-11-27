@@ -165,20 +165,22 @@ step "open the terminal"
   # its Return, the next command is appended to it, and every character arrives in capitals. The
   # first thing typed after the chord is the command that matters.
 
-step "unlock sudo once for this session"
-  # `run:` TYPES THE LINE, SO THE PASSWORD GOES IN AS THE NEXT LINE - THE ONLY FORM THAT WORKS ON
-  # BOTH zsh AND bash WITHOUT A `printf` ESCAPE.
-  #
-  # MEASURED on run 45959727296's recording at 450 s: manjaro's terminal is FIFTEEN lines of
-  # `pipe quote>`, because `printf '%s\\n' ...` reached zsh as `printf '%s` followed by a real
-  # newline - the `\\n` was consumed by the walk, the single quote never closed, and zsh sat in
-  # continuation mode for the rest of the stage. zsh spells that prompt `pipe quote>`, which is why
-  # this was invisible as "the same bug as zorin".
-  #
-  # `sudo -S` reads one line from stdin. Typing the password as the NEXT line gives it that line,
-  # with no escape to be eaten, on zsh or bash.
-  input text "{{ password }}"
+# SUDO IS UNLOCKED BEFORE THE FIRST COMMAND THAT NEEDS IT, NOT AFTER.
+#
+# MEASURED on run 45974100416: `install openssh` (pacman) was step 12 and the unlock was step 26 -
+# so every `sudo -n` before it answered "sudo: a password is required", pacman never ran, and
+# sshd_config never appeared. The unlock is moved here, and split into the two steps that work on
+# zsh: `run` types the command, `input text` types the password as the next line.
+step "unlock sudo, before anything needs it"
+  run "sudo -S -v"
+  type_gap 0.15
   settle 2
+
+
+step "answer sudo's password prompt"
+  input text "{{ password }}"
+  type_gap 0.15
+  settle 4
 
 
 step "install openssh"
@@ -223,26 +225,6 @@ step "allow password authentication"
   #
   # The fix is `sudo -S -v` FIRST, on its own line, which seeds the timestamp for every sudo that
   # follows in the same terminal - then the rest needs no password at all.
-step "unlock sudo for the whole stage, once"
-  # THE PASSWORD GOES IN THROUGH THE PIPE, NOT THE KEYBOARD.
-  #
-  # MEASURED on run 45949016408's recording at 500 s, on the terminal:
-  #
-  #	[sudo] password for vmuser:
-  #	sudo: PAM authentication error: Authentication token manipulation error
-  #	sudo: a password is required
-  #	[sudo] password for vmuser:
-  #	Sorry, try again.
-  #
-  # A bare `sudo -v` waits for TTY input, and what the walk TYPES into it arrives with
-  # `type_gap 0.09`-style pacing that sudo's own read can cut short - and the first attempt also
-  # raises the "lecture" block, which delays the read further. `echo pw | sudo -S -v` hands the
-  # password over as a complete line from stdin, which is what every other Linux stage here does.
-  run "sudo -S -v && sudo -n true && echo SUDO_UNLOCKED"
-  type_gap 0.15
-  settle 5
-
-
 step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # sshd REFUSES TO START WITHOUT HOST KEYS, AND THIS FILE NEVER MADE ANY IN A `run:`.
   #
@@ -269,7 +251,7 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
 
 
 step "enable sshd at boot"
-  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"
   settle 8
   terminal_wait 0
 
