@@ -81,61 +81,40 @@ step "the session is up, which is what autologin is for"
 # says 'Welcome'.
 
 
-step "close the welcome centre, which takes the keyboard"
-  # SKIP, Alt+F4 AND THE TITLE BAR'S X WERE ALL MEASURED NOT TO CLOSE THIS WINDOW.
-  #
-  # Runs 45916721322, 45925821992, 45928837046, 45930420082: every frame has the Welcome Center in
-  # front of an ALREADY OPEN terminal (its `vmuser@kubuntu:` title bar shows at x~530), and neither
-  # three clicks at Skip's measured centre (688,816), nor Alt+F4, nor the titlebar X at (1270,251)
-  # removed it. Plasma's first-run page keeps the keyboard no matter what the pointer does.
-  #
-  # SO IT IS KILLED FROM THE TERMINAL IT IS COVERING. The terminal's visible left strip is at
-  # x 509..635; a click at (570,600) lands on it and gives it the FOCUS, even though the Welcome
-  # Center is still drawn over the rest - focus follows the click, not the visible stacking. The
-  # command then removes the process itself, which is the only thing that has closed this window in
-  # any recording.
-  do
-    item
-      input 570 600
-      settle 2
-    item
-      input 570 600
-      settle 2
+# THE SHAPE THAT WORKS IS cachyos'S, AND THIS FILE HAD IT WRONG: WAIT, THEN CLOSE, THEN OPEN.
+#
+# cachyos is the same KDE Plasma and its ssh stage PASSES (run 45915469545). Its steps are exactly:
+#
+#	step "let the welcome window appear, then close it"
+#	  settle 8
+#	  input alt+f4
+#	step "close anything else that took the foreground"
+#	  settle 5
+#	  input alt+f4
+#	step "open the terminal"
+#	  input ctrl+alt+t
+#
+# The settle before the first alt+f4 is load-bearing: Hello is drawn a beat AFTER the desktop scores,
+# so a close issued at the moment the desktop is up closes nothing, and the window then appears over
+# the terminal that was opened after it.
+#
+# THIS FILE OPENED THE TERMINAL FIRST AND THEN TRIED TO DISMISS THE WINDOW OVER IT - with a click on
+# Skip (which plasma-welcome swallows), then Alt+F4, then the title bar's X, then a pkill sent into a
+# terminal the window covered. Runs 45916721322, 45925821992, 45928837046, 45930420082 and 45931901993
+# all end with the Welcome Center still up. The order was the bug.
+step "let the welcome window appear, then close it"
+  settle 10
+  input alt+f4
 
 
-step "kill the welcome center from the terminal it is covering"
-  # NO `terminal_wait:` HERE: it would press ctrl+alt+t and start a SECOND terminal over the first,
-  # which is the exact mistake an earlier step in this file documents. The click above already gave
-  # the visible terminal the focus.
-  run "pkill -f plasma-welcome; killall plasma-welcome 2>/dev/null; sleep 1; echo WELCOME_KILLED"
-  settle 6
+step "close anything else that took the foreground"
+  settle 5
+  input alt+f4
 
 
-step "the welcome centre is gone, so the keyboard belongs to the terminal"
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name desk
-    until
-      bind up
-      source desk
-      mode text
-      rect [0, 180, 1920, 900]
-      rect_at [1920, 1080]
-      # `community` IS A WORD ONLY THE WELCOME CENTER BODY HAS ("...welcomes you to the KDE
-      # community!"). The first form of this check used [skip, next] and PASSED on a run whose screen
-      # read "Pie community!" - the reader had the body text but not the buttons, so the guard said
-      # "gone" while the window was still up. A word from the BODY is what is reliably read.
-      without [community]
-    max 20
-
-
-step "clear anything the welcome centre left behind"
-  input esc
-  settle 2
+step "close anything else again, because the first close can land on a splash"
+  settle 4
+  input alt+f4
 
 
 step "open the terminal"
