@@ -262,13 +262,28 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
 
 
 step "enable sshd at boot"
-  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"
+  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1"
   settle 8
   terminal_wait 0
 
 
-step "start sshd"
-  run "sudo -n systemctl restart sshd 2>&1 | tail -3"
+# `daemon-reload` FIRST - THE UNIT DEGRADED BECAUSE ITS DROP-INS CHANGED ON DISK.
+#
+# MEASURED on run 45981506218's recording at 420 s:
+#
+#	Warning: The unit file, source configuration file or drop-ins of sshd.service changed on disk.
+#	         Run 'systemctl daemon-reload' to reload units.
+#	Job for sshd.service failed because the control process exited with error code.
+#	State Recv-Q Send-Q Local Address:Port  Peer Address:Port
+#	LISTEN 0 4096 127.0.0.1:631 ...        <- CUPS only: no :22
+#	failed
+#
+# `99-vm.conf` and `98-port.conf` were written with `sudo -n sh -c` in the steps above, and systemd
+# still had the OLD unit definition compiled from the old file list. A `daemon-reload` makes it read
+# the drop-ins; only then can `restart` succeed. `journalctl -xeu sshd` is printed on failure so the
+# next run names the reason instead of "it failed".
+step "start sshd, after a daemon-reload so the drop-ins are seen"
+  run "sudo -n systemctl daemon-reload; sudo -n systemctl restart sshd; sleep 2; systemctl is-active sshd; ss -lnt | grep ':22 ' || echo NO_LISTENER"
   settle 10
   terminal_wait 0
 
