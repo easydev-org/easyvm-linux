@@ -82,22 +82,31 @@ step "the session is up, which is what autologin is for"
 
 
 step "close the welcome centre, which takes the keyboard"
-  # SKIP IS AT 700,838, NOT 684,813 - MEASURED OFF THE FRAME.
+  # SKIP IS AT (688, 816), AND (700, 838) MISSED IT BY 22 VERTICAL PIXELS.
   #
-  # RUN 45772880341's recording at 120 s is the Welcome Centre with its Skip and Next buttons, and
-  # cropping that frame (640,780 size 700x120) puts Skip's centre at about (700,838). The walk
-  # clicked (684,813), which is ABOVE the button, on the body text and the "Visit community.kde.org"
-  # link - so the window never closed and every `run:` after it typed into the Welcome Centre, which
-  # is why openssh was never installed and `wait for sshd` spent its budget on connection refused.
+  # MEASURED on run 45916721322's recording, which is the whole point: frames at 240 s and 320 s are
+  # IDENTICAL - "Welcome Center" still open, the clock moving 4:33 -> 4:35 - while the walk typed
+  # `apt-get install openssh-server` and `systemctl enable --now ssh` into it. Cropping the frame at
+  # (640,780) size 260x80 and scaling it 3x puts Skip's box at x 648..728, y 802..830, so its centre
+  # is (688, 816). The old click at (700, 838) is INSIDE the x range but 8 px BELOW the box, on the
+  # page body - which is why three clicks changed nothing, openssh was never installed, and
+  # `wait for sshd` spent its whole budget on `connection refused` (the guest even RSTs, so this is
+  # not the password bug: sshd simply is not there).
+  #
+  # THREE CLICKS, THEN ESCAPE: a click on Skip was measured not to take once, on a frame where the
+  # button had not finished drawing, and a desktop that never showed the window must not fail here.
+  # The old value in the paragraph above, (700,838), is kept as a warning: it is 22 px BELOW Skip on
+  # the frame this was re-measured from, and it is exactly the kind of near miss that reads as a
+  # working click until you watch two minutes of recording that never changes.
   do
     item
-      input 700 838
+      input 688 816
       settle 3
     item
-      input 700 838
+      input 688 816
       settle 3
     item
-      input 700 838
+      input 688 816
       settle 3
 
 
