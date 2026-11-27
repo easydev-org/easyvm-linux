@@ -211,6 +211,13 @@ step "turn zsh's spelling correction off, which blocks on every typo"
 # real backslash-n instead of a newline in the source.
 step "unlock sudo, before anything needs it"
   run "printf '%s\\n' {{ password }} | sudo -S -v"
+  # `terminal_wait 0` SENDS THE RETURN THAT FLUSHES printf's LINE INTO sudo.
+  #
+  # MEASURED on zorin's run 45991004474 (the same line, byte for byte): without this
+  # the prompt filled with hundreds of asterisks and answered "3 incorrect password
+  # attempts" twice, because sudo reads from the TTY and consumed whatever the NEXT
+  # step typed. kubuntu has `terminal_wait 0` after its unlock and passes.
+  terminal_wait 0
   settle 4
   type_gap 0.15
 
