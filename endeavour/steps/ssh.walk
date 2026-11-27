@@ -111,22 +111,34 @@ step "greeter - submit"
   settle 20
 
 
+# THE REFERENCE IMAGE WAS A LIVE-ISO FRAME, NOT THIS DESKTOP.
+#
+# MEASURED on run 45916747458: the step scored 0.4771 against reference/desktop.png for its whole
+# budget. That file is the INSTALLER's own screenshot - "Welcome v26.7.2-1 [ISO: 2026.08.15]",
+# "Installing EndeavourOS to disk", "Please wait...", the clock reading 2026-08-15 - captured from the
+# live medium. The ssh stage boots the INSTALLED system, whose top bar has none of it. Comparing them
+# could never reach 0.9.
+#
+# SO THE DESKTOP IS RECOGNISED BY A WORD, the way kubuntu's is: this is Xfce, whose panel carries the
+# application menu labelled `Whisker` on the installed system, and the live installer window the
+# reference shows is gone. Waiting for the word is the check that describes the state this file
+# actually needs - a logged-in desktop, not a particular picture of one.
 step "the desktop is up after the login"
   repeat
     do
       item
+        settle 5
+      item "read the screen"
         read
           name screen
     until
+      bind up
       source screen
-      mode like
-      reference reference/desktop.png
-      range [0.9, 1]
-      rect [0, 0, 1920, 120]
+      mode text
+      rect [0, 940, 700, 1080]
       rect_at [1920, 1080]
-      must true
+      words [[whisker], [applications], [terminal]]
     max 120
-    pause 5
 
 
 step "open the terminal"
