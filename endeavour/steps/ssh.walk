@@ -150,14 +150,19 @@ step "the desktop is up after the login"
     max 120
 
 
+# ONE alt+f4 CLOSES THE WINDOW; A SECOND LOCKS THE SESSION.
+#
+# MEASURED on run 45939403696's recording at 550 s: the screen is the LOCK SCREEN - the clock at
+# 11:32 PM over the "ENDEAVOUROS TITAN" wallpaper and NO window at all - after this pair of alt+f4
+# presses. The first closed "Welcome v26.7.2-1"; the second landed on an empty desktop and locked it,
+# so every `run:` below typed into a lock screen. This is the same failure kubuntu had, and the same
+# fix: ONE press, then let the file's next steps work on a desktop that is still logged in.
+#
+# (endeavour's Xfce screensaver locks on the same idle/blank path the file's earlier
+# "disable the screen saver" step was written for; the lock is what a second window-close reaches.)
 step "close the welcome window, so the keyboard belongs to the desktop"
   input alt+f4
   settle 6
-
-
-step "close anything else that took the foreground, once more"
-  input alt+f4
-  settle 3
 
 
 step "open the terminal"
