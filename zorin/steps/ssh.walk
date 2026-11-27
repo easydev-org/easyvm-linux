@@ -304,7 +304,7 @@ step "unlock sudo once for this session"
   #
   # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
   # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
-  run "printf '%s\\n' {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
+  run "printf '%s\\n' {{ password }} | sudo -S -v"
   settle 5
   type_gap 0.06
 
@@ -426,7 +426,7 @@ step "refresh sudo so the install asks for nothing"
   #
   # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
   # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
-  run "printf '%s\\n' {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
+  run "printf '%s\\n' {{ password }} | sudo -S -v"
   settle 4
   type_gap 0.09
 
@@ -446,7 +446,19 @@ step "kill packagekit, which is what raises the panel"
 
 
 step "install openssh-server, with no question it could stop at"
-  run "sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confnew openssh-server"
+  # THE INSTALL MUST CARRY ITS OWN PASSWORD - AND THE ONE-LINE `printf | sudo -S -v && echo` FORM
+  # WAS NOT SEEDING ANYTHING.
+  #
+  # MEASURED on run 45967850206's recording: at 700 s the prompt reads
+  # `[sudo] password for vmuser: SUDO_UNLOCKED` - the `&& echo` output landed on sudo's own prompt
+  # line, because `printf '%s\n' pw | sudo -S -v && echo X` runs `echo X` while sudo is still
+  # reading. Every `sudo` after it was unauthenticated, so `apt-get install openssh-server` never
+  # ran: at 740 s `sed: can't read /etc/ssh/sshd_config: No such file or directory`, and
+  # `systemctl restart ssh` answers `Unit ssh.service not found` - openssh was never installed.
+  #
+  # So this carries the password itself, and `apt-get` gets `-y` plus the dpkg options so it cannot
+  # stop on a prompt. The settle is long because the Ubuntu archive is slow on this runner.
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' env DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confnew openssh-server 2>&1 | tail -5; ls -l /etc/ssh/sshd_config 2>&1 || echo NO_SSHD_CONFIG"
   settle 300
   type_gap 0.09
 # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
