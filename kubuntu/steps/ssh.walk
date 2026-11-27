@@ -146,32 +146,38 @@ step "unlock sudo once for this session"
   terminal_wait 0
 
 
-# INSTALLED THROUGH THE GUEST AGENT, BECAUSE A `run:` HERE COULD NOT BE TRUSTED TO RUN AT ALL.
+# A `run:` IS ONLY A COMMAND IF SOMETHING READS BACK THAT IT RAN.
 #
-# MEASURED on run 45916721322: frames at 240 s and 320 s are IDENTICAL - Welcome Center open, clock
-# moving 4:33 -> 4:35 - while `apt-get install openssh-server` was typed. It has a password prompt and
-# a progress bar and needs no terminal window to be useful, so it goes to the guest kernel's own
-# command channel, where it returns apt's exit status and the installed version. `DEBIAN_FRONTEND` and
-# `-o Dpkg::Options` keep it from stopping on a prompt that nobody is there to answer.
-# THE AGENT MUST ANSWER BEFORE `qga: exec` IS ASKED ANYTHING.
+# MEASURED on run 45916721322: this step and the two below it typed into a Welcome Center that held
+# the focus, and the only thing the stage reported an hour later was `wait for sshd: sshd does not
+# accept a connection`. A `run:` returns nothing; the SCREEN is the witness.
 #
-# MEASURED on run 45922889731: the install step failed with "the agent ... does not answer
-# `guest-ping`: read ... i/o timeout. The socket is open on the host side, so this is the GUEST's
-# agent: it is not installed, or not running, or it is busy". The socket exists as soon as qemu
-# starts it; the guest's qemu-guest-agent starts later. `machine_qga` is the fact for that, and
-# waiting on it is what keeps this step's verdict about apt rather than about the channel.
-step "wait for the guest agent to answer"
+# SO EACH COMMAND ENDS WITH A SENTINEL WORD AND THE NEXT STEP WAITS FOR THAT WORD. If the keystrokes
+# went to a window that is not the terminal, the word never appears, the wait fails HERE, and the
+# message names the step that did nothing instead of the port that closed ten minutes later.
+# `OPENSSH_INSTALLED` is printed by the same shell line that ran apt, so it cannot be stale.
+step "install openssh-server"
+  run "sudo apt-get install -y openssh-server; echo OPENSSH_INSTALLED=$?"
+  settle 20
+  terminal_wait 0
+
+
+step "prove the install actually ran, by the word it printed"
   repeat
-    until machine_qga
+    do
+      item
+        settle 3
+      item "read the terminal"
+        read
+          name tty
+    until
+      bind up
+      source tty
+      mode text
+      rect [0, 300, 1920, 1080]
+      rect_at [1920, 1080]
+      words [[OPENSSH_INSTALLED]]
     max 60
-    pause 5
-
-
-step "install openssh-server through the guest agent"
-  qga "exec"
-  argv ["/bin/sh", "-c", "DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold openssh-server 2>&1 | tail -5; echo ---; dpkg-query -W -f='${Status} ${Version}\n' openssh-server 2>&1"]
-  timeout 600
-  settle 3
 
 
 step "allow password authentication"
@@ -180,18 +186,31 @@ step "allow password authentication"
   terminal_wait 0
 
 
-# THE SAME LESSON AS THE INSTALL ABOVE, AND THE PROOF IS THE SAME FRAME.
-#
-# `systemctl enable --now ssh` is four words and one listener. Typed into a window that is not a
-# terminal it does nothing, and the only symptom is a host probe saying "no route to host" ten
-# minutes later against a guest whose sshd was never started - which is exactly what this stage did.
-# Through the guest agent the enable, the firewall teardown and the listener check return their own
-# exit status, and `ss -lnt` is read back rather than assumed.
-step "enable ssh and take the firewall down, through the guest agent"
-  qga "exec"
-  argv ["/bin/sh", "-c", "systemctl enable --now ssh 2>&1 | tail -2; systemctl disable --now ufw >/dev/null 2>&1; ufw disable >/dev/null 2>&1; systemctl disable --now firewalld >/dev/null 2>&1; iptables -P INPUT ACCEPT 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-enabled ssh; ss -lnt 2>/dev/null | grep ':22 ' || echo NO_LISTENER"]
-  timeout 180
-  settle 3
+# SAME WITNESS AS THE INSTALL ABOVE: the command proves it ran by printing a word, and the next step
+# waits for that word on the screen. `systemctl enable --now ssh` typed into anything but a terminal
+# does nothing and says nothing; the sentinel is what turns that into a failure at THIS step.
+step "enable ssh at boot"
+  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo SSH_ENABLED; systemctl is-active ssh"
+  settle 8
+  terminal_wait 0
+
+
+step "prove ssh was enabled, by the word it printed"
+  repeat
+    do
+      item
+        settle 3
+      item "read the terminal"
+        read
+          name tty2
+    until
+      bind up
+      source tty2
+      mode text
+      rect [0, 300, 1920, 1080]
+      rect_at [1920, 1080]
+      words [[SSH_ENABLED]]
+    max 40
 
 
 step "wait for sshd"

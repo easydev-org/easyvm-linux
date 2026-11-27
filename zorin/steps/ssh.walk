@@ -472,36 +472,40 @@ step "allow password authentication"
 # result instead of assuming it.
 
 
-# THE SAME REASON AS THE RESTART BELOW: A `run:` TYPES INTO WHATEVER HAS THE FOCUS.
+# A `run:` IS ONLY A COMMAND IF SOMETHING READS BACK THAT IT RAN.
 #
-# This step and the proof after it used to be `run:` lines. If the desktop had a panel in front
-# (this image raises one over the package install) they typed into it, and nothing downstream could
-# tell - the next thing the stage heard was the host probe, an hour later, saying no route. Through
-# `qga: exec` the service is enabled, the firewall is taken down and the listener is CONFIRMED, all
-# with a status that is returned rather than hoped for.
-# `machine_qga` BEFORE THE FIRST `qga: exec`, for the reason measured on kubuntu's run 45922889731:
-# the host-side socket exists as soon as qemu starts it, and the guest's agent is not up yet, so the
-# first command answers "does not answer guest-ping: i/o timeout" and the step fails for a reason
-# that is not its own.
-step "wait for the guest agent to answer"
+# MEASURED on run 45916730145: this stage's commands typed into a desktop whose session had dropped
+# to the greeter after a restart, and the only report was `wait for sshd: no route to host` ten
+# minutes later. A `run:` returns nothing; the SCREEN is the witness. So the line ends with a word
+# and the next step waits for that word - a command that did not run fails HERE, by name.
+step "enable and start ssh in one request"
+  run "sudo systemctl enable --now --no-block ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  settle 10
+  type_gap 0.09
+
+
+step "prove the enable actually ran, by the word it printed"
   repeat
-    until machine_qga
-    max 60
-    pause 5
-
-
-step "enable ssh and take the firewall down, through the guest agent"
-  qga "exec"
-  argv ["/bin/sh", "-c", "systemctl enable ssh >/dev/null 2>&1; systemctl disable --now ufw >/dev/null 2>&1; ufw disable >/dev/null 2>&1; systemctl disable --now firewalld >/dev/null 2>&1; iptables -P INPUT ACCEPT 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-enabled ssh; echo FIREWALL_OFF"]
-  timeout 120
-  settle 3
+    do
+      item
+        settle 3
+      item "read the terminal"
+        read
+          name tty
+    until
+      bind up
+      source tty
+      mode text
+      rect [0, 300, 1920, 1080]
+      rect_at [1920, 1080]
+      words [[FIREWALL_OFF]]
+    max 40
 
 
 step "prove the unit is up before waiting on a port"
-  qga "exec"
-  argv ["/bin/sh", "-c", "systemctl is-active ssh; ss -lnt 2>/dev/null | grep ':22 ' || echo NO_LISTENER"]
-  timeout 60
-  settle 3
+  run "systemctl is-active ssh; ss -lnt 2>/dev/null | grep \":22 \" || echo NO_LISTENER"
+  settle 6
+  type_gap 0.09
 
 
 step "sshd authenticates against shadow, because this image ships no PAM service file"
@@ -516,23 +520,33 @@ step "sshd authenticates against shadow, because this image ships no PAM service
   type_gap 0.09
 
 
-# THE RESTART GOES THROUGH THE GUEST AGENT, NOT THE SCREEN, AND THAT IS THE FIX.
+# `--no-block` RETURNED BEFORE THE RESTART FINISHED, SO THE DROP-IN MAY NOT HAVE BEEN READ YET.
 #
-# MEASURED on run 45916730145's recording: this step used to be `run "sudo systemctl restart
-# --no-block ssh; ..."`, i.e. TYPED INTO KONSOLE. The recording at 420 s is the ZORIN GREETER with an
-# empty password box - not a terminal - so the command never ran; `wait for sshd` then spent its
-# whole budget on `no route to host` against a guest whose ssh service had never been restarted (and
-# whose drop-in therefore never took effect). A `run:` cannot tell anyone it did nothing: it has no
-# exit status, and the screen it types into may not be a terminal at all.
-#
-# `qga: exec` runs in the guest kernel's own command channel: no window, no focus, no password, and
-# it returns the command's stdout AND its exit status, which is what a step needs to be a verdict.
-# `systemctl restart ssh` (not `--no-block`) so the is-active line below is about the new process.
-step "restart ssh through the guest agent, where the exit status is readable"
-  qga "exec"
-  argv ["/bin/sh", "-c", "systemctl restart ssh 2>&1 | tail -3; sleep 5; systemctl is-active ssh; ss -lnt 2>/dev/null | grep ':22 ' || echo NO_LISTENER"]
-  timeout 120
-  settle 3
+# MEASURED on run 45916730145: the `wait for sshd` after this step spent its whole budget on
+# `no route to host`. A blocking restart plus the is-active line is the version whose result can be
+# read, and the sentinel makes the step fail here if the keystrokes went somewhere else.
+step "restart so the drop-in is read"
+  run "sudo systemctl restart ssh; sleep 5; systemctl is-active ssh; echo SSHD_RESTARTED"
+  settle 10
+  type_gap 0.09
+
+
+step "prove the restart ran, by the word it printed"
+  repeat
+    do
+      item
+        settle 3
+      item "read the terminal"
+        read
+          name tty2
+    until
+      bind up
+      source tty2
+      mode text
+      rect [0, 300, 1920, 1080]
+      rect_at [1920, 1080]
+      words [[SSHD_RESTARTED]]
+    max 40
 
 
 step "wait for sshd"
