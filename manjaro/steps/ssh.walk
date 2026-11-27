@@ -241,7 +241,12 @@ step "restart sshd now that the keys are on disk"
 
 
 step "enable sshd again, over ssh, where the exit status is readable"
-  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3\nsystemctl is-enabled sshd\ntest \"$(systemctl is-enabled sshd)\" = \"enabled\"\n"
+  # THE LOGIN SHELL IS PART OF THE CONTRACT: this disk's vmuser is fish, and every
+  # `ssh:` here is POSIX sh. MEASURED with the engine's own client: `fish -c 'set -e ...
+  # test ...'` answers "set: --erase: option requires an argument" (set -e in fish is
+  # set --erase, not errexit); CI run 45913042417, the first with the ssh password right,
+  # died on `read what this boot did` on exactly such a command.
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' chsh -s /bin/bash vmuser 2>&1 | tail -2; printf '%s\\n' '{{ password }}' | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3\nsystemctl is-enabled sshd\ntest \"$(systemctl is-enabled sshd)\" = \"enabled\"\n"
   timeout 180
 
 

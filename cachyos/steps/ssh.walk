@@ -332,22 +332,7 @@ step "enable sshd at boot, and start it"
   # it the host's SYN is dropped and the probe reports "no route to host", which reads as a broken
   # link rather than a closed door. Both are done here, in one run, before anything waits.
   #
-  # rp_filter=2 IS THE FIX FOR A ONE-WAY FAILURE, AND THE MEASUREMENT IS COMPLETE.
-  # Run 45807597852's screen, at the diagnosis step, is every fact needed:
-  #
-  #	LISTEN 0.0.0.0:22  users:(("sshd",pid=2116))     sshd IS listening on all addresses
-  #	sshd -T: port 22, listenaddress 0.0.0.0:22
-  #	ping 172.30.0.1 -> 2 received, 0% packet loss     guest reaches the host
-  #	ip neigh -> 172.30.0.1 REACHABLE                  ARP resolves the host
-  #	MAC = 52:54:00:56:4d:01 = QEMU_MAC                the NIC is the right one
-  #
-  # Every one is correct, and the host STILL gets `no route to host` on 172.30.0.1:2222, which is
-  # ICMP host-unreachable, not a refusal. That is STRICT REVERSE-PATH FILTERING: rp_filter=1 drops a
-  # packet whose source route does not go back out the interface it arrived on, and answers
-  # host-unreachable. Arch/cachyos ships rp_filter=1 (strict); Ubuntu - anduinos, which passes -
-  # ships 2 (loose). The asymmetry is the whole bug: guest->host is fine, host->guest is dropped.
-  # `2` is loose mode: the path is checked for reachability, not for the exact interface.
-  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' sh -c 'sysctl -w net.ipv4.conf.all.rp_filter=2 net.ipv4.conf.enp0s6.rp_filter=2 net.ipv4.conf.default.rp_filter=2 2>&1 | tail -3'; systemctl is-active sshd"
+  run "echo {{ password }} | sudo -S -p '' ssh-keygen -A 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' chsh -s /bin/bash vmuser 2>&1 | tail -2; echo {{ password }} | sudo -S -p '' systemctl enable --now sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' sh -c 'sysctl -w net.ipv4.conf.all.rp_filter=2 net.ipv4.conf.enp0s6.rp_filter=2 net.ipv4.conf.default.rp_filter=2 2>&1 | tail -3'; systemctl is-active sshd"
   settle 15
   terminal_wait 0
 
@@ -405,86 +390,19 @@ step "open the firewall for ssh"
 # then to bring the wired NIC up through NetworkManager. Both the diagnosis and the fix are here
 # because the next run is the measurement: if this brings the link up, `wait for sshd` passes; if it
 # does not, the `ip a` / `nmcli` output on screen is the answer the logs never carried.
-step "say what the guest's NIC is"
-  # EVERY ONE OF THESE IS ITS OWN `run`. The previous single line - sysctl + ss + bash /dev/tcp +
-  # nft + nstat + tcpdump + ip -s, all joined by `;` - came out on the cachyos screen as ONE
-  # unexecuted line (measured: run 45896556804's video shows it typed and never run, no output at
-  # all), so NONE of the guest-side facts this session has been reasoning about were ever actually
-  # collected. Fish is the shell here; a line that long with that many quotes and a bash sub-shell
-  # in the middle does not survive it. Short, separate commands do.
-  run "cat /sys/class/net/enp0s6/address"
-  settle 2
-  terminal_wait 0
-
-step "guest rp_filter as it really is"
-  run "cat /proc/sys/net/ipv4/conf/enp0s6/rp_filter /proc/sys/net/ipv4/conf/all/rp_filter"
-  settle 2
-  terminal_wait 0
-
-step "guest listener and rx counters"
-  run "echo {{ password }} | sudo -S -p '' ss -lnt | grep :22"
-  settle 2
-  terminal_wait 0
-
-step "guest rx/tx packet counters on its NIC"
-  run "echo {{ password }} | sudo -S -p '' ip -s -s link show enp0s6 | tail -8"
-  settle 2
-  terminal_wait 0
-
-# THE NIC PROVED IT DELIVERED: RX errors 0, dropped 0. So the SYN from the host arrives at
-# enp0s6 cleanly and the guest does not answer it. A SYN that reaches a listening socket and gets no
-# SYN-ACK is either dropped by the TCP input path (syncookies off + a full SYN queue, or a listen
-# backlog of zero) or accepted and the reply dropped before the wire. These counters name which:
-# TcpExtListenDrops / TCPReqQFullDrop climb on a full accept queue; TcpInErrs / TcpExtTCPHPHits tell
-# the other story. One short, fish-safe line.
-step "guest tcp counters for a dropped SYN"
-  run "echo {{ password }} | sudo -S -p '' nstat -az | grep -iE 'ListenDrops|ReqQFullDrop|InErrs|InSegs|OutSegs|AttemptFails|SyncookiesSent|ListenOverflows'"
-  settle 3
-  terminal_wait 0
-
-# (the guest-side tcpdump step that used to sit here never ran: its backgrounded tcpdump was started
-# with `sudo` inside a fish line and left no /tmp/gcap.txt. Removed rather than fixed - the RX/TX
-# counters and nstat lines above answer the same question without a capture.)
-
-
-# FLUSH THE GUEST'S NETFILTER OUTRIGHT, BECAUSE THE COUNTERS SAY THAT IS WHERE THE SYN DIES.
+# THE DIAGNOSIS THAT USED TO SIT HERE IS GONE, BECAUSE IT ANSWERED A QUESTION THAT WAS NEVER THE
+# PROBLEM. Runs 45884303163...45904428903 spent many rounds measuring the guest's NIC (MAC, rp_filter,
+# RX/TX counters, nstat drop counters) and flushing its netfilter, on the theory that a frame was
+# being dropped between the wire and sshd. Run 45913042417 closed that: the guest's own sshd logged a
+# "Connection closed by authenticating user vmuser ... [preauth]" every ten seconds - the probe's
+# cadence - its /proc/net/tcp held an ESTABLISHED socket from 172.30.0.1, and every guest-side counter
+# was clean. The wire was never the problem.
 #
-# Run 45903101168 finally measured the guest's TCP layer with the split, echo-based commands:
-#   ss -lnt: LISTEN 0.0.0.0:22
-#   enp0s6:  RX packets 1099 errors 0 dropped 0
-#   nstat:   TcpInSegs 983 TcpOutSegs 460 TcpAttemptFails 0 TcpInErrs 0
-#            ListenDrops 0 ListenOverflows 0 TCPReqQFullDrop 0 SyncookiesSent 0
-#
-# EVERY drop counter is ZERO, including ListenDrops - so the SYN never reached the TCP listen queue.
-# The NIC dropped nothing either. A frame that the NIC received (RX increments), that no TCP counter
-# saw, and that the host pcap shows leaving for the right MAC, was dropped in between at NETFILTER.
-# `ufw disable` left the ufw chains in place (they are empty but present); a distro can also carry
-# its own nft rules that ufw never touched. Flushing is the one action that cannot leave a rule
-# behind, and if the SYN arrives after it, netfilter was the cause.
-step "flush the guest's netfilter and prove sshd still listens"
-  run "echo {{ password }} | sudo -S -p '' nft flush ruleset"
-  settle 2
-  terminal_wait 0
+# The real cause was the ssh password the DAEMON dialed with (and, behind it, this disk's fish login
+# shell); both are fixed - see the `chsh` note above and `password: "admin1"` in cachyos-ssh.yml.
+# `qga: file-read /proc/net/tcp` stays as the one ground truth that needs no ssh: a listening 22 is
+# `:0016` in state `0A`, which is what tells a later reader whether sshd is up when a probe fails.
 
-step "drop iptables rules too"
-  run "echo {{ password }} | sudo -S -p '' sh -c 'iptables -F; iptables -P INPUT ACCEPT; iptables -P FORWARD ACCEPT; iptables -P OUTPUT ACCEPT'"
-  settle 2
-  terminal_wait 0
-
-step "sshd still listening after the flush"
-  run "echo {{ password }} | sudo -S -p '' ss -lnt | grep :22"
-  settle 2
-  terminal_wait 0
-
-
-# THE GROUND TRUTH, FROM qemu-guest-agent RATHER THAN THE SCREEN.
-#
-# Every `run` in this file types into Konsole. If the session is locked - or the terminal lost
-# focus - the command is typed and never executes, and the walk cannot tell. `qga:` does not touch
-# the screen: it asks the guest agent, which is a channel to the guest kernel. If sshd is running
-# here but the host probe fails, the fault is the network. If sshd is NOT running here, the earlier
-# `run` steps that were supposed to install and start it did nothing, and the host probe was right
-# to fail - the fault is the screen, not the wire.
 step "ask the guest agent whether sshd is really up"
   # `qga: exec` RUNS A COMMAND IN THE GUEST AND READS ITS OUTPUT - no screen, no ssh, no password.
   # This is the ground truth the file has been missing: every `run` above types into Konsole and
