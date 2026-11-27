@@ -480,7 +480,7 @@ step "install openssh-server, with no question it could stop at"
   #
   # So this carries the password itself, and `apt-get` gets `-y` plus the dpkg options so it cannot
   # stop on a prompt. The settle is long because the Ubuntu archive is slow on this runner.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' env DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confnew openssh-server 2>&1 | tail -5; ls -l /etc/ssh/sshd_config 2>&1 || echo NO_SSHD_CONFIG"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' apt-get install -y openssh-server > /tmp/apt.log 2>&1; tail -3 /tmp/apt.log; ls /etc/ssh/sshd_config || echo NO_SSHD_CONFIG"
   settle 300
   type_gap 0.09
 # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
@@ -628,7 +628,18 @@ step "enable and start ssh in one request"
   #
   # When this step was rewritten to remove policy-rc.d, those lines went with it.
   # They are back, in the same sh -c so they carry the same authentication.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload; systemctl unmask ssh ssh.socket 2>/dev/null; systemctl enable ssh.socket 2>/dev/null; systemctl enable ssh 2>/dev/null; systemctl start ssh.socket 2>/dev/null; systemctl restart ssh; sleep 2; systemctl disable --now ufw 2>/dev/null; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; systemctl stop firewalld 2>/dev/null; iptables -P INPUT ACCEPT 2>/dev/null; iptables -F 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active ssh; ss -lnt | grep :22 || echo NO_LISTENER'; echo FIREWALL_OF'"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' rm -f /usr/sbin/policy-rc.d"
+  terminal_wait 0
+  settle 3
+
+
+step "start ssh, with the socket"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket 2>/dev/null; systemctl is-active ssh || true"
+  settle 3
+
+
+step "take the firewall down"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' ufw disable 2>/dev/null; iptables -P INPUT ACCEPT 2>/dev/null; systemctl is-active ssh; ss -lnt | grep :22 || echo NO_LISTENER"
   settle 10
   type_gap 0.09
 
