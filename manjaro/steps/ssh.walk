@@ -161,6 +161,27 @@ step "open the terminal"
   input ctrl+alt+t
   settle 20
 
+
+# zsh'S `correct` OPTION TURNS EVERY TYPO INTO A BLOCKING PROMPT.
+#
+# MEASURED on run 45990262489's recording at 430 s:
+#
+#	zsh: correct 'ufw' to 'ufw' [nyae]? n
+#	zsh: correct 'rep' to 'grep' [nyae]? y
+#
+# The walk types at a per-character gap and this guest drops or duplicates keystrokes
+# (`grep` arrived as `rep`, `sudo` as `ssudo` on an earlier run). zsh's `correct`
+# option then asks "did you mean ..." and WAITS for an answer - so the rest of the
+# line is consumed as the answer and the command never runs. Every sudo step after
+# the first typo is lost.
+#
+# `unsetopt correct correctall` is one short line and removes the class of failure;
+# `setopt no_auto_menu` stops tab-completion menus from doing the same. Both are
+# given their own `run` so a single lost keystroke cannot take the other with it.
+step "turn zsh's spelling correction off, which blocks on every typo"
+  run "unsetopt correct correctall 2>/dev/null; setopt no_auto_menu 2>/dev/null; echo ZSH_OPTIONS_SET"
+  settle 3
+
   # NO PROBE COMMAND. MEASURED ON endeavour AND mx: a lone 'echo XXX' right after the chord loses
   # its Return, the next command is appended to it, and every character arrives in capitals. The
   # first thing typed after the chord is the command that matters.
