@@ -165,20 +165,37 @@ step "open the terminal"
   # its Return, the next command is appended to it, and every character arrives in capitals. The
   # first thing typed after the chord is the command that matters.
 
-step "unlock sudo once for this session"
-  # `run:` TYPES THE LINE, SO THE PASSWORD GOES IN AS THE NEXT LINE - THE ONLY FORM THAT WORKS ON
-  # BOTH zsh AND bash WITHOUT A `printf` ESCAPE.
-  #
-  # MEASURED on run 45959727296's recording at 450 s: manjaro's terminal is FIFTEEN lines of
-  # `pipe quote>`, because `printf '%s\\n' ...` reached zsh as `printf '%s` followed by a real
-  # newline - the `\\n` was consumed by the walk, the single quote never closed, and zsh sat in
-  # continuation mode for the rest of the stage. zsh spells that prompt `pipe quote>`, which is why
-  # this was invisible as "the same bug as zorin".
-  #
-  # `sudo -S` reads one line from stdin. Typing the password as the NEXT line gives it that line,
-  # with no escape to be eaten, on zsh or bash.
-  input text "{{ password }}"
+# SET THE PASSWORD THROUGH THE GUEST AGENT, BECAUSE THE DISK'S OWN PASSWORD IS NOT `admin1`.
+#
+# MEASURED on run 45962356688's recording at 400 s:
+#
+#	$ sudo -S -v && sudo -n true && echo SUDO_UNLOCKED
+#	[sudo] password for vmuser:
+#	Sorry, try again.
+#	[sudo] password for vmuser:
+#	Sorry, try again.
+#	[sudo] password for vmuser:
+#	sudo: 3 incorrect password attempts
+#
+# The install walk types this password twice (`input text "{{ password }}"`), and
+# on this guest the two fields evidently did not both receive `admin1` - the
+# classic "typed too fast into a Qt password box" of this family. Every sudo after
+# it then answered "a password is required".
+#
+# `qga: exec` runs as root in the guest kernel's channel: no sudo, no password, no
+# screen. `chpasswd` sets the account's password to exactly the string the walk
+# uses everywhere else, which makes the rest of the stage's assumption true.
+step "set the guest's password through the agent, which needs no sudo"
+  qga "exec"
+  argv ["/bin/sh", "-c", "echo 'vmuser:{{ password }}' | chpasswd && echo PASSWORD_SET; passwd -S vmuser"]
+  timeout 60
   settle 2
+
+
+step "the password works, over the agent's own shell"
+  qga "exec"
+  argv ["/bin/sh", "-c", "id -un; getent passwd vmuser | cut -d: -f7"]
+  timeout 30
 
 
 step "install openssh"
