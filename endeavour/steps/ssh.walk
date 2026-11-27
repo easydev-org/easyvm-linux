@@ -253,18 +253,31 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # `ssh-keygen -A` is inside an `ssh:` step (line ~257), which runs OVER ssh - so it can only work
   # once sshd is already up, which is exactly what it is supposed to cause. cachyos, which passes,
   # does the keygen in a `run:` before anything waits. This is that step.
-  run "sudo -n sh -c 'mkdir -p /etc/ssh; ssh-keygen -A; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING' 2>&1 | tail -6"
+  # `ssh-keygen -A` SILENTLY DID NOTHING INSIDE `sudo -n sh -c`, AND THE FRAME SAYS SO.
+  #
+  # MEASURED on run 45957506457's recording at 400 s: pacman DID succeed this time -
+  # "(6/6) Restart a running sshd.service" is on the terminal - and the very next line is
+  #
+  #	$ sudo -n sh -c 'mkdir -p /etc/ssh; ssh-keygen -A; test -s ... && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'
+  #	HOST_KEYS_MISSING
+  #
+  # so the key files were never written. `sudo -n` fails IMMEDIATELY (no password available) if the
+  # timestamp is not fresh, and a `;`-separated sequence carries on regardless - the real error was
+  # never shown because `tail -6` kept only the last lines. This version re-unlocks with the password
+  # in the same line (so it cannot depend on an earlier timestamp), uses the absolute path, and
+  # prints each step's own status.
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh && echo MKDIR_OK; /usr/bin/ssh-keygen -A 2>&1 | tail -3; ls -l /etc/ssh/ssh_host_ed25519_key 2>&1; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
   settle 10
 
 
 step "enable sshd at boot"
-  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 
 
 step "start sshd"
-  run "sudo -n systemctl restart sshd 2>&1 | tail -3"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart sshd 2>&1 | tail -3"
   settle 10
   terminal_wait 0
 
