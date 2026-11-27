@@ -329,15 +329,12 @@ step "unlock sudo once for this session"
   run "printf '%s\\n' {{ password }} | sudo -S -v"
   terminal_wait 0
   settle 5
-  type_gap 0.15
 step "stop the updater that keeps raising the panel"
   run "sudo pkill -f update-notifier"
   settle 3
-  type_gap 0.15
 step "stop the software centre"
   run "sudo pkill -f gnome-software"
   settle 3
-  type_gap 0.15
 # `apt-get update` FIRST: this disk's index can point at a version the archive has replaced,
 # which answers 404 and reads like a network problem (measured on popos, same family).
 # THE SOFTWARE UPDATER RAISES POLKIT'S 'Authentication Required' OVER THE TERMINAL, UNPROMPTED.
@@ -379,19 +376,15 @@ step "stop the software centre"
 step "stop the update notifier, one short command at a time"
   run "sudo systemctl stop packagekit"
   settle 3
-  type_gap 0.15
 step "stop the unattended upgrades"
   run "sudo systemctl stop unattended-upgrades"
   settle 3
-  type_gap 0.15
 step "stop the timers that start them again"
   run "sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer"
   settle 3
-  type_gap 0.15
 step "refresh the package index"
   run "sudo apt-get update"
   settle 60
-  type_gap 0.15
 # THE POLKIT PANEL COMES BACK WHILE `apt-get` RUNS, AND ITS PASSWORD BOX EATS THE NEXT COMMAND.
 #
 # MEASURED ON RUN 44959488705's zorin ssh recording at 500 s: a centred "Authentication Required /
@@ -440,11 +433,9 @@ step "refresh sudo so the install asks for nothing"
   run "printf '%s\\n' {{ password }} | sudo -S -v"
   terminal_wait 0
   settle 4
-  type_gap 0.15
 step "kill packagekit, which is what raises the panel"
   run "sudo pkill -9 packagekitd"
   settle 3
-  type_gap 0.15
 # THE INSTALL RUNS IN THE FOREGROUND AND IS POLLED, BECAUSE `apt-get` CAN SIT ON A PROMPT.
 #
 # MEASURED ON RUN 44985080074: the stage reached `wait for sshd` with no `/etc/ssh/sshd_config` at
@@ -470,7 +461,6 @@ step "install openssh-server, with no question it could stop at"
   # stop on a prompt. The settle is long because the Ubuntu archive is slow on this runner.
   run "printf '%s\\n' {{ password }} | sudo -S -p '' apt-get install -y openssh-server > /tmp/apt.log 2>&1; tail -3 /tmp/apt.log; ls /etc/ssh/sshd_config || echo NO_SSHD_CONFIG"
   settle 300
-  type_gap 0.15
 # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
 #
 # MEASURED ON RUN 44985080074: the stage reached `wait for sshd` and spent its ten minutes on a
@@ -498,7 +488,6 @@ step "wait for the package to land its config"
   # frame shows the file exists with 3517 bytes. A wait is unnecessary; a report is what is useful.
   run "test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING"
   settle 3
-  type_gap 0.15
 step "prove the install produced its unit and config"
   run "test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK; systemctl list-unit-files 2>/dev/null | grep -E \"^ssh\" || echo NO_SSH_UNIT"
 
@@ -519,11 +508,9 @@ step "dismiss the authentication panel the install woke up"
 step "stop packagekit again, so it cannot ask again"
   run "sudo systemctl stop packagekit packagekit.service 2>/dev/null; sudo systemctl mask packagekit 2>/dev/null; systemctl is-active packagekit || echo PACKAGEKIT_STOPPED"
   settle 8
-  type_gap 0.15
 step "allow password authentication"
   run "sudo sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config ; sudo grep -i \"^PasswordAuthentication\" /etc/ssh/sshd_config"
   settle 3
-  type_gap 0.15
 # THE ENABLE IS NOT DECORATION: `policy-rc.d returned 101` means the package install was told NOT
 # to start the service, so this is the step that makes sshd run at all.
 # ENABLE AND START AS ONE NON-BLOCKING REQUEST, THE WAY THE SIBLINGS THAT PASS DO.
@@ -643,14 +630,19 @@ step "make the host keys, or sshd exits the moment it starts"
 
 
 step "start ssh, with the socket, showing what systemctl says"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start ssh.socket; systemctl start ssh; echo ---; systemctl is-active ssh ssh.socket; echo ---; systemctl status ssh --no-pager -l 2>&1 | head -12; echo ---; journalctl -u ssh --no-pager -n 10 2>&1'"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket; echo SOCKET_STARTED"
+  terminal_wait 0
+  settle 3
+
+
+step "start ssh itself"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh; systemctl is-active ssh"
   settle 5
 
 
 step "take the firewall down"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' ufw disable 2>/dev/null; iptables -P INPUT ACCEPT 2>/dev/null; systemctl is-active ssh; ss -lnt | grep :22 || echo NO_LISTENER"
   settle 10
-  type_gap 0.15
 # THE POLKIT DIALOG RE-RAISES, AND IT EATS THE KEYBOARD.
 #
 # MEASURED on run 45925832220: the recording shows an "Authentication Required" modal over the
@@ -666,11 +658,9 @@ step "take the firewall down"
 step "resend the enable if the word never came, with the modal gone"
   run "sudo systemctl start ssh.socket 2>/dev/null; sudo systemctl start ssh 2>/dev/null; sudo ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
   settle 8
-  type_gap 0.15
 step "prove the unit is up before waiting on a port"
   run "systemctl is-active ssh; ss -lnt 2>/dev/null | grep \":22 \" || echo NO_LISTENER"
   settle 6
-  type_gap 0.15
 step "sshd authenticates against shadow, because this image ships no PAM service file"
   # THE DROP-IN IS NOT ENOUGH ON ITS OWN. A distro whose /etc/ssh/sshd_config ships no
   # `Include /etc/ssh/sshd_config.d/*.conf` never opens 99-vm.conf - MEASURED on endeavour-ssh, where
@@ -691,7 +681,6 @@ step "sshd authenticates against shadow, because this image ships no PAM service
   # all, and the same goes for the dummy-proof proof: `sshd -T` output, which needs none either.
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh/sshd_config.d; echo UsePAM no > /etc/ssh/sshd_config.d/99-vm.conf; echo PasswordAuthentication yes >> /etc/ssh/sshd_config.d/99-vm.conf; echo KbdInteractiveAuthentication no >> /etc/ssh/sshd_config.d/99-vm.conf; cat /etc/ssh/sshd_config.d/99-vm.conf'"
   settle 8
-  type_gap 0.15
 # `--no-block` RETURNED BEFORE THE RESTART FINISHED, SO THE DROP-IN MAY NOT HAVE BEEN READ YET.
 #
 # MEASURED on run 45916730145: the `wait for sshd` after this step spent its whole budget on
@@ -720,7 +709,6 @@ step "sshd authenticates against shadow, because this image ships no PAM service
 step "restart ssh so the drop-in is read AND the daemon is running"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart ssh 2>&1 | tail -2; sleep 3; systemctl is-active ssh; ss -lnt | grep ':22 ' || echo NO_LISTENER"
   settle 6
-  type_gap 0.15
 # THE PROOF IS THE PROBE, NOT THE SCREEN - AND THIS GUEST'S SCREEN GOES BLANK.
 #
 # MEASURED on run 45932132419: every screen-read sentinel after `enable`/`reload` returned "" for its

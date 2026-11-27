@@ -147,7 +147,6 @@ step "open the overview"
 step "search for the terminal"
   settle 3
   input text terminal
-  type_gap 0.08
 
 
 step "the result list has had time to draw"
@@ -189,7 +188,6 @@ step "unlock sudo once for this session"
   run "printf '%s\\n' {{ password }} | sudo -S -v"
   settle 5
   terminal_wait 0
-  type_gap 0.15
 
   # THE CONFIG EDIT IS INSERTED BEFORE THE CLOSING BRACE AND THEN PRINTED BACK.
   #
@@ -206,7 +204,6 @@ step "declare openssh in configuration.nix"
   run "sudo sed -i \"/^}/i\\\\  services.openssh.enable = true;\\\\n  services.openssh.settings.PasswordAuthentication = true;\\\\n  networking.firewall.enable = false;\" /etc/nixos/configuration.nix; grep -n \"openssh\\|firewall\" /etc/nixos/configuration.nix; sudo nixos-rebuild dry-build 2>&1 | tail -3"
   settle 30
   terminal_wait 0
-  type_gap 0.15
 
   # `nixos-rebuild switch` HERE, BECAUSE IT IS THE ONE THAT STARTS SSHD WITHOUT A REBOOT.
   #
@@ -224,7 +221,6 @@ step "build and activate the new profile"
   run "sudo nixos-rebuild switch"
   settle 420
   terminal_wait 0
-  type_gap 0.15
 
   # NOTHING IS TYPED AFTER THE SWITCH, BECAUSE THE SESSION IT WAS TYPED INTO GOES AWAY.
   #

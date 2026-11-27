@@ -392,7 +392,6 @@ step "type the password into an emptied field, slowly"
   input text "{{ password }}"
     at 960 942
     clear true
-    type_gap 0.25
   settle 6
 
 step "submit the password"
@@ -403,7 +402,6 @@ step "the password again, for a press the display manager may not have taken"
   input text "{{ password }}"
     at 960 942
     clear true
-    type_gap 0.25
   settle 5
 
 step "submit it again"

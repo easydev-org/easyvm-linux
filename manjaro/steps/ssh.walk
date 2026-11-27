@@ -219,7 +219,6 @@ step "unlock sudo, before anything needs it"
   # step typed. kubuntu has `terminal_wait 0` after its unlock and passes.
   terminal_wait 0
   settle 4
-  type_gap 0.15
 
 
 step "install openssh"

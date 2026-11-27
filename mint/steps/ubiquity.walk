@@ -17,7 +17,6 @@ step "disable the screen saver and the lock"
   run "gsettings set org.cinnamon.desktop.session idle-delay 0; gsettings set org.cinnamon.desktop.screensaver lock-enabled false; gsettings set org.cinnamon.desktop.screensaver idle-activation-enabled false; xset s off; xset -dpms; xset s noblank; ( for i in $(seq 1 1080); do xdotool mousemove_relative -- 1 0 2>/dev/null; xdotool mousemove_relative -- -1 0 2>/dev/null; sleep 20; done ) >/dev/null 2>&1 & exit"
   settle 10
   terminal_wait 8
-  type_gap 0.15
 
 
 step "open the installer"

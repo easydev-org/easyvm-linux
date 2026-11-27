@@ -183,7 +183,6 @@ step "keep the screen on and unlock sudo, before anything needs it"
   # 45941267442's final second - a BLACK FRAME, the display switched off during the wait.
   # `xfconf-query` turns dpms and blanking off; `xset` stays as a best-effort first choice.
   run "printf '%s\\n' {{ password }} | sudo -S -v; echo SUDO_UNLOCKED"
-  type_gap 0.15
   settle 6
   terminal_wait 0
 

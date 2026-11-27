@@ -183,7 +183,6 @@ step "the terminal is open, or the dock icon is clicked"
       item
         settle 3
         input text terminal
-        type_gap 0.12
       item
         input ret
         settle 8
