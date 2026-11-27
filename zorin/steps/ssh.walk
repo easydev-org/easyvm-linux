@@ -627,6 +627,21 @@ step "enable and start ssh in one request"
 #
 # This step now shows systemctl's own output, the unit's state and its journal, so the
 # next run names the failure instead of "inactive".
+# sshd EXITS AT ONCE WHEN THERE ARE NO HOST KEYS, AND THIS FILE NEVER MADE ANY.
+#
+# MEASURED over five runs: `systemctl start ssh` prints nothing, then `systemctl is-active ssh`
+# answers `inactive` and `ss -lnt` has no :22. On this image `policy-rc.d returned 101` blocks the
+# package postinst, so openssh-server never generated its host keys - and an sshd with no
+# /etc/ssh/ssh_host_*_key exits immediately, exactly as observed.
+#
+# manjaro - which passes - has this step (`/usr/bin/ssh-keygen -A` in a `run:`) and zorin had none.
+# The key is generated here, before anything starts the daemon, and the step prints whether the key
+# landed so the next run names this layer instead of reporting `inactive`.
+step "make the host keys, or sshd exits the moment it starts"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh; /usr/bin/ssh-keygen -A; ls /etc/ssh/ssh_host_ed25519_key >/dev/null 2>&1 && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
+  settle 4
+
+
 step "start ssh, with the socket, showing what systemctl says"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start ssh.socket; systemctl start ssh; echo ---; systemctl is-active ssh ssh.socket; echo ---; systemctl status ssh --no-pager -l 2>&1 | head -12; echo ---; journalctl -u ssh --no-pager -n 10 2>&1'"
   settle 5
@@ -674,7 +689,7 @@ step "sshd authenticates against shadow, because this image ships no PAM service
   # with those expansions EMPTY - the walk's own variable pass consumes `${...}` before the shell ever
   # sees it. So the three settings are written by three literal sed lines, with no shell variables at
   # all, and the same goes for the dummy-proof proof: `sshd -T` output, which needs none either.
-  run "sudo mkdir -p /etc/ssh/sshd_config.d; printf 'UsePAM no\nPasswordAuthentication yes\nKbdInteractiveAuthentication no\n' | sudo tee /etc/ssh/sshd_config.d/99-vm.conf >/dev/null; sudo sed -i 's/^#\?[[:space:]]*UsePAM.*/UsePAM no/' /etc/ssh/sshd_config; sudo sed -i 's/^#\?[[:space:]]*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config; sudo sed -i 's/^#\?[[:space:]]*KbdInteractiveAuthentication.*/KbdInteractiveAuthentication no/' /etc/ssh/sshd_config; sudo grep -q '^UsePAM no$' /etc/ssh/sshd_config || printf 'UsePAM no\n' | sudo tee -a /etc/ssh/sshd_config >/dev/null; sudo grep -q '^PasswordAuthentication yes$' /etc/ssh/sshd_config || printf 'PasswordAuthentication yes\n' | sudo tee -a /etc/ssh/sshd_config >/dev/null; sudo grep -q '^KbdInteractiveAuthentication no$' /etc/ssh/sshd_config || printf 'KbdInteractiveAuthentication no\n' | sudo tee -a /etc/ssh/sshd_config >/dev/null; sudo sshd -T 2>&1 | grep -iE '^(usepam|passwordauthentication|kbdinteractive)'"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh/sshd_config.d; echo UsePAM no > /etc/ssh/sshd_config.d/99-vm.conf; echo PasswordAuthentication yes >> /etc/ssh/sshd_config.d/99-vm.conf; echo KbdInteractiveAuthentication no >> /etc/ssh/sshd_config.d/99-vm.conf; cat /etc/ssh/sshd_config.d/99-vm.conf'"
   settle 8
   type_gap 0.15
 # `--no-block` RETURNED BEFORE THE RESTART FINISHED, SO THE DROP-IN MAY NOT HAVE BEEN READ YET.
