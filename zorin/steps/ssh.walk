@@ -294,23 +294,17 @@ step "keep the screen on, with the tool this guest actually has"
 
 
 step "unlock sudo once for this session"
-  # `printf '%s\\n' pw | sudo -S -v` BECOMES AN UNCLOSED QUOTE ON THIS GUEST.
+  # `printf '%s\\n'` IS THE FORM THAT WORKS - A PIPE WITH `echo` DOES NOT END THE PASSWORD.
   #
-  # MEASURED on run 45942888647's recording at 750 s: every later command is on a `> ` CONTINUATION
-  # prompt -
+  # MEASURED on run 45947487319's recording at 900 s: the sudo prompt is filled with HUNDREDS of
+  # asterisks and `Sorry, try again`, because `echo admin1 | sudo -S` sends the password with NO
+  # TRAILING NEWLINE. `run:` types into the terminal, so the `|` is a real shell pipe - but sudo
+  # reads until a newline, keeps waiting, and every subsequent character the walk types is swallowed
+  # into the password field.
   #
-  #	vmuser@...:~$ printf ' | sudo -S -v
-  #	> sudo pkill -f gnome-software
-  #	> sudo systemctl stop packagekit
-  #	...
-  #
-  # - i.e. the line the walk sent was `printf ' | sudo -S -v`. The `%s\n` inside the single quotes was
-  # consumed as the WALK's own escape (a real newline), so the quote never closed and the terminal sat
-  # in continuation mode for the rest of the stage: nothing after it ever ran.
-  #
-  # `echo {{ password }} | sudo -S -v` has no format string and no escape, and is what the passing
-  # kubuntu/cachyos stages use.
-  run "echo {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
+  # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
+  # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
+  run "printf '%s\\n' {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
   settle 5
   type_gap 0.06
 
@@ -422,23 +416,17 @@ step "refresh the package index"
 
 
 step "refresh sudo so the install asks for nothing"
-  # `printf '%s\\n' pw | sudo -S -v` BECOMES AN UNCLOSED QUOTE ON THIS GUEST.
+  # `printf '%s\\n'` IS THE FORM THAT WORKS - A PIPE WITH `echo` DOES NOT END THE PASSWORD.
   #
-  # MEASURED on run 45942888647's recording at 750 s: every later command is on a `> ` CONTINUATION
-  # prompt -
+  # MEASURED on run 45947487319's recording at 900 s: the sudo prompt is filled with HUNDREDS of
+  # asterisks and `Sorry, try again`, because `echo admin1 | sudo -S` sends the password with NO
+  # TRAILING NEWLINE. `run:` types into the terminal, so the `|` is a real shell pipe - but sudo
+  # reads until a newline, keeps waiting, and every subsequent character the walk types is swallowed
+  # into the password field.
   #
-  #	vmuser@...:~$ printf ' | sudo -S -v
-  #	> sudo pkill -f gnome-software
-  #	> sudo systemctl stop packagekit
-  #	...
-  #
-  # - i.e. the line the walk sent was `printf ' | sudo -S -v`. The `%s\n` inside the single quotes was
-  # consumed as the WALK's own escape (a real newline), so the quote never closed and the terminal sat
-  # in continuation mode for the rest of the stage: nothing after it ever ran.
-  #
-  # `echo {{ password }} | sudo -S -v` has no format string and no escape, and is what the passing
-  # kubuntu/cachyos stages use.
-  run "echo {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
+  # `printf '%s\\n' pw | sudo -S` ends the line, which is what sudo wants - and it is exactly what
+  # the passing kubuntu stage uses (line 145 of kubuntu/steps/ssh.walk).
+  run "printf '%s\\n' {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
   settle 4
   type_gap 0.09
 
