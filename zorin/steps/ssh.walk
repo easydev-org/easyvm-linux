@@ -294,7 +294,23 @@ step "keep the screen on, with the tool this guest actually has"
 
 
 step "unlock sudo once for this session"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
+  # `printf '%s\\n' pw | sudo -S -v` BECOMES AN UNCLOSED QUOTE ON THIS GUEST.
+  #
+  # MEASURED on run 45942888647's recording at 750 s: every later command is on a `> ` CONTINUATION
+  # prompt -
+  #
+  #	vmuser@...:~$ printf ' | sudo -S -v
+  #	> sudo pkill -f gnome-software
+  #	> sudo systemctl stop packagekit
+  #	...
+  #
+  # - i.e. the line the walk sent was `printf ' | sudo -S -v`. The `%s\n` inside the single quotes was
+  # consumed as the WALK's own escape (a real newline), so the quote never closed and the terminal sat
+  # in continuation mode for the rest of the stage: nothing after it ever ran.
+  #
+  # `echo {{ password }} | sudo -S -v` has no format string and no escape, and is what the passing
+  # kubuntu/cachyos stages use.
+  run "echo {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
   settle 5
   type_gap 0.06
 
@@ -406,7 +422,23 @@ step "refresh the package index"
 
 
 step "refresh sudo so the install asks for nothing"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
+  # `printf '%s\\n' pw | sudo -S -v` BECOMES AN UNCLOSED QUOTE ON THIS GUEST.
+  #
+  # MEASURED on run 45942888647's recording at 750 s: every later command is on a `> ` CONTINUATION
+  # prompt -
+  #
+  #	vmuser@...:~$ printf ' | sudo -S -v
+  #	> sudo pkill -f gnome-software
+  #	> sudo systemctl stop packagekit
+  #	...
+  #
+  # - i.e. the line the walk sent was `printf ' | sudo -S -v`. The `%s\n` inside the single quotes was
+  # consumed as the WALK's own escape (a real newline), so the quote never closed and the terminal sat
+  # in continuation mode for the rest of the stage: nothing after it ever ran.
+  #
+  # `echo {{ password }} | sudo -S -v` has no format string and no escape, and is what the passing
+  # kubuntu/cachyos stages use.
+  run "echo {{ password }} | sudo -S -v && echo SUDO_UNLOCKED"
   settle 4
   type_gap 0.09
 
