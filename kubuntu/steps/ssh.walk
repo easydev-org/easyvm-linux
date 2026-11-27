@@ -32,76 +32,81 @@ step "boot the disk"
 # The band is the middle of the screen where the window is drawn, not the whole frame.
 
 
-step "the session is up, which is what autologin is for"
+# THE GUEST IS AT SDDM, NOT AT A DESKTOP, AND THE OLD CHECK COULD NOT TELL THE DIFFERENCE.
+#
+# MEASURED on run 45933118254: the frame at 40 s is the SDDM password screen - a clock reading
+# 7:19 PM, the vmuser avatar at (960,480), an EMPTY "Password" field at (940,598) - and the stage's
+# first step ("the session is up") had already PASSED on it, because that step only looked for the
+# words [welcome], [plasma], [kubuntu] in a big rectangle and the login screen carries "kubuntu" in
+# its own branding. So no one ever logged in: the alt+f4 that follows closes nothing on SDDM, the
+# ctrl+alt+t opens nothing, and the "Welcome Center" seen later was the desktop that finally
+# appeared at 250 s - by which time the stage had already typed its commands into the greeter.
+#
+# SO THE LOGIN IS EXPLICIT, the same four beats cachyos uses and passes with: wait for the avatar's
+# own word, click the tile, click the field, type the password, Return. THEN the desktop wait, which
+# needs the panel and clock no greeter has - `launcher` is the Kicker menu label on this image's
+# panel and is what a grep of a logged-in frame shows and a greeter does not.
+step "the greeter is drawn, and it is a GREETER"
   repeat
     do
       item
-        settle 10
+        settle 2
       item "read the screen"
         read
-          name desk
+          name greeter
     until
       bind up
-      source desk
+      source greeter
       mode text
-      rect [600, 200, 1300, 900]
+      rect [740, 430, 1340, 700]
       rect_at [1920, 1080]
-      words [[welcome], [plasma], [kubuntu]]
+      words [vmuser]
+    max 60
+
+
+step "greeter - the user tile"
+  input 960 480
+  settle 2
+
+
+step "greeter - the password field"
+  input 940 598
+  settle 1
+
+
+step "greeter - type the password"
+  input text "{{ password }}"
+  settle 2
+
+
+step "greeter - submit"
+  input ret
+  settle 15
+
+
+step "the desktop is up, which is what the login was for"
+  # SDDM'S OWN WORDS ARE THE NEGATIVE: a logged-in Plasma desktop shows none of "Hibernate", "Sleep",
+  # "Shut Down" or "Virtual Keyboard", and the greeter shows all three. `read` + `without` is the
+  # honest test - the alternative, waiting for a desktop word, has no frame in these runs to measure
+  # it against (there is no desktop-ssh reference for this guest), and a word guessed wrong fails a
+  # stage that is actually fine.
+  repeat
+    do
+      item
+        settle 5
+      item "read the screen"
+        read
+          name desk2
+    until
+      bind up
+      source desk2
+      mode text
+      rect [0, 0, 1920, 1080]
+      rect_at [1920, 1080]
+      without [hibernate, "shut down", "virtual keyboard"]
     max 40
-# THE WELCOME CENTRE IS UP ON THIS DESKTOP AND IT EATS ctrl+alt+t.
-#
-# MEASURED ON RUN 44548179034, whose ssh recording at 90 s is "Welcome Center" with its Skip
-# button and NOTHING ELSE - no terminal, no shell prompt. Every command of the stage then went
-# into a window that was not there, and `wait for sshd` spent its ten minutes on a guest where
-# openssh had never been installed.
-#
-# The same run's NEXT frames show the terminal never appearing, and the daemon log has no output
-# under any of the `run:` steps - which is what a stage typing into the desktop looks like.
-#
-# SO THE WINDOW IS DISMISSED FIRST. `Skip` is at 684,813 on that frame, and the step is optional
-# because a desktop that has already been dismissed (or never showed it) must not fail here.
-# THE CLICK ON `Skip` WAS MEASURED NOT TO TAKE, SO THE WINDOW IS CLOSED WITH THE KEYBOARD.
-#
-# RUN 44557862904's recording is the Welcome Centre for its whole length, sitting OVER the
-# terminal that ctrl+alt+t had already opened (the shell prompt `vmuser@kubuntu:` is visible in
-# the strip of terminal at the left). A click at Skip's own coordinates - 684,813, read off that
-# frame - left it there, and every `run:` after it went to the window holding focus.
-#
-# Alt+F4 closes the focused window whatever its title bar is doing, and a second Escape covers
-# the case where the window was already closed and something else took focus.
-# THE WELCOME CENTRE IS CLOSED BY ITS OWN BUTTON, IN A LOOP THAT CHECKS IT WENT AWAY.
-#
-# `press alt+F4` FAILED THE STEP OUTRIGHT - the recording is fourteen frames long - so the chord
-# is not usable here (there is no window manager guarantee that a focused window exists at the
-# moment the key arrives).
-#
-# A click on `Skip` was measured not to take ONCE, on a frame where the button had not finished
-# drawing. Repeating it until the window's own words are gone is the version that cannot be
-# defeated by one badly timed click: the loop reads the pane, and only stops when it no longer
-# says 'Welcome'.
 
 
-# THE SHAPE THAT WORKS IS cachyos'S, AND THIS FILE HAD IT WRONG: WAIT, THEN CLOSE, THEN OPEN.
-#
-# cachyos is the same KDE Plasma and its ssh stage PASSES (run 45915469545). Its steps are exactly:
-#
-#	step "let the welcome window appear, then close it"
-#	  settle 8
-#	  input alt+f4
-#	step "close anything else that took the foreground"
-#	  settle 5
-#	  input alt+f4
-#	step "open the terminal"
-#	  input ctrl+alt+t
-#
-# The settle before the first alt+f4 is load-bearing: Hello is drawn a beat AFTER the desktop scores,
-# so a close issued at the moment the desktop is up closes nothing, and the window then appears over
-# the terminal that was opened after it.
-#
-# THIS FILE OPENED THE TERMINAL FIRST AND THEN TRIED TO DISMISS THE WINDOW OVER IT - with a click on
-# Skip (which plasma-welcome swallows), then Alt+F4, then the title bar's X, then a pkill sent into a
-# terminal the window covered. Runs 45916721322, 45925821992, 45928837046, 45930420082 and 45931901993
-# all end with the Welcome Center still up. The order was the bug.
 step "let the welcome window appear, then close it"
   settle 10
   input alt+f4
