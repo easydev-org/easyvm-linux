@@ -144,9 +144,25 @@ step "greeter - submit"
 # `No Thanks` is at 873,797. Escape follows for a panel that is already dismissed.
 
 
+# THE `when:` GUARD MEANT THIS NEVER RAN, AND THE PANEL WAS NEVER DISMISSED.
+#
+# MEASURED on run 45938430145's recording at 700 s: "No Thanks" / "Start Tour" is still on screen
+# behind the terminal, in the middle of the desktop - the GNOME first-run tour. The step that was
+# written to dismiss it carries `when [password, vmuser]`, i.e. it only runs when those words are on
+# the SCREEN, and a logged-in GNOME desktop shows neither (they are greeter words). So the click at
+# (873,797) had never been sent in any run, whatever the comment above believed.
+#
+# `No Thanks` is at (873,797) on that frame; alt+f4 afterwards closes the dialog if the button click
+# missed. Both are unconditional now, and a desktop that shows no panel is unaffected - a click on
+# empty wallpaper and a close on nothing are both harmless.
 step "dismiss the first-run tour panel, which takes the keyboard"
   input 873 797
-  when [password, vmuser]
+  settle 3
+
+
+step "close the panel if the click did not, which is what blocks the keyboard"
+  input alt+f4
+  settle 3
 
 
 step "clear anything the panel left behind"
@@ -500,8 +516,23 @@ step "clear the authentication modal, which holds the keyboard"
       settle 2
 
 
+# THIS IMAGE IS SOCKET-ACTIVATED, AND `enable ssh` STARTS THE WRONG UNIT.
+#
+# MEASURED on run 45938430145's recording at 700 s, on the terminal:
+#
+#	$ systemctl list-unit-files | grep -E "^ssh"
+#	ssh.service            disabled  enabled
+#	ssh.socket             enabled   enabled
+#
+# `systemctl enable --now ssh` resolves to ssh.service, which is DISABLED here and does not listen:
+# the listener is ssh.socket. So sshd never had a socket, and every probe was "no route to host" on a
+# guest whose config was correct (SSHD_CONFIG_OK, PasswordAuthentication yes are both on that frame).
+#
+# Starting `ssh.socket` is what opens :22 on a socket-activated system, and `enable ssh` is kept so a
+# boot without the socket still seeds the service. `daemon-reload` first, because the unit files were
+# just written.
 step "enable and start ssh in one request"
-  run "sudo systemctl enable --now --no-block ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "sudo systemctl daemon-reload; sudo systemctl unmask ssh 2>/dev/null; sudo systemctl enable ssh.socket 2>/dev/null; sudo systemctl enable ssh 2>/dev/null; sudo systemctl start ssh.socket 2>/dev/null; sudo systemctl start ssh 2>/dev/null; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; sudo ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
   settle 10
   type_gap 0.09
 
@@ -519,7 +550,7 @@ step "enable and start ssh in one request"
 # Enter answers nothing. A modally-blocked screen answers "" - which is the empty string this step
 # reported - and the loop keeps going rather than failing on the first blank frame.
 step "resend the enable if the word never came, with the modal gone"
-  run "sudo systemctl enable --now --no-block ssh; echo FIREWALL_OFF; systemctl is-active ssh"
+  run "sudo systemctl start ssh.socket 2>/dev/null; sudo systemctl start ssh 2>/dev/null; sudo ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
   settle 8
   type_gap 0.09
 
