@@ -82,31 +82,25 @@ step "the session is up, which is what autologin is for"
 
 
 step "close the welcome centre, which takes the keyboard"
-  # SKIP IS AT (688, 816). THE CLICK WAS NEVER THE WRONG COORDINATE - THE WINDOW WAS NOT GONE.
+  # THE CLICK ON SKIP DOES NOT TAKE; THE WINDOW CLOSE BUTTON DOES.
   #
-  # MEASURED on run 45925821992: frames at 60 s and 180 s are IDENTICAL, "Welcome Center" still up
-  # with its Skip and Next, clock 6:05 -> 6:07, while three clicks at (688,816) and every `run:`
-  # below it did nothing. The terminal IS behind it and its prompt is visible in the strip at the
-  # left, so ctrl+alt+t worked - it is the KEYBOARD that the Welcome Center still holds.
+  # MEASURED on runs 45916721322 and 45925821992: frames minutes apart are IDENTICAL - "Welcome
+  # Center" still up, clock advancing - while three clicks at Skip's measured centre (688,816) and
+  # every `run:` below did nothing. The terminal IS behind it (its `vmuser@kubuntu:` prompt shows in
+  # the strip at the left), so ctrl+alt+t worked; the Welcome Center keeps the KEYBOARD.
   #
-  # THE FRAME ALSO SHOWS WHY THE CLICK MISSES: the window's client area is a WebKit page with its own
-  # hover popup ("Visit community.kde.org") drawn over the middle, and Skip sits in a footer that the
-  # popup overlaps upward. A click that lands while the popup is up is swallowed. So the popup is
-  # dismissed first (Escape, twice, with a beat between), and only then is Skip clicked - twice, on
-  # the same measured centre, because a first click on a window that has just regained focus is the
-  # one that is least reliable.
-  #
-  # AND THIS TIME IT IS VERIFIED: the step after this one reads the screen and fails unless
-  # "Welcome Center" is gone, so a future frame that swallows the click names THIS step.
+  # So the window is CLOSED rather than skipped through: Alt+F4 is the window manager's own close
+  # and needs no coordinate, and the title bar's X at (1270,251) - read off the same frame - is the
+  # fallback for a frame where Alt+F4 was swallowed. Both are tried, twice.
   do
     item
-      input esc
-      settle 2
-    item
-      input 688 816
+      input alt+F4
       settle 3
     item
-      input 688 816
+      input 1270 251
+      settle 3
+    item
+      input alt+F4
       settle 3
 
 
@@ -125,7 +119,12 @@ step "the welcome centre is gone, so the keyboard belongs to the terminal"
       mode text
       rect [640, 180, 1280, 900]
       rect_at [1920, 1080]
-      without [skip, next]
+      # `community` IS A WORD ONLY THE WELCOME CENTER SHOWS ("The KDE mascot Konqi welcomes you to
+      # the KDE community!"). The first form of this check used [skip, next] and PASSED on a run whose
+      # screen read "Pie community!" - the OCR had picked up the body text but not the buttons, so the
+      # guard said "gone" while the window was still up. A word from the BODY is what the reader
+      # reliably sees.
+      without [community]
     max 12
 
 
