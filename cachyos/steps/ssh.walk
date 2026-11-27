@@ -477,6 +477,19 @@ step "restart the machine"
   timeout 60
 
 
+step "give the guest time to actually go down"
+  # MEASURED on run 45914585745: `come back up with sshd answering` was satisfied after ONE attempt,
+  # because `machine_ssh` reads the probe's LAST answer, and the probe had answered "true" a second
+  # before the reboot began. The next step then ran against a machine that was already going down and
+  # failed with "remote command exited without exit status or exit signal"; the probe line a minute
+  # later read `connection refused`. `systemctl reboot` returns before the reset, so a wait that
+  # reads a cached "true" waits for nothing.
+  #
+  # TWENTY-FIVE SECONDS is longer than this image takes to stop sshd and shorter than its boot, so
+  # the wait below sees a FRESH "true" rather than the pre-reboot one.
+  settle 25
+
+
 step "come back up with sshd answering"
   repeat
     until machine_ssh
