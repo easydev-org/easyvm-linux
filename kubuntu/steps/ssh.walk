@@ -46,80 +46,74 @@ step "boot the disk"
 # own word, click the tile, click the field, type the password, Return. THEN the desktop wait, which
 # needs the panel and clock no greeter has - `launcher` is the Kicker menu label on this image's
 # panel and is what a grep of a logged-in frame shows and a greeter does not.
-step "the greeter is drawn, and it is a GREETER"
-  repeat
-    do
-      item
-        settle 2
-      item "read the screen"
-        read
-          name greeter
-    until
-      bind up
-      source greeter
-      mode text
-      rect [740, 430, 1340, 700]
-      rect_at [1920, 1080]
-      words [vmuser]
-    max 60
-
-
-step "greeter - the user tile"
-  input 960 480
-  settle 2
-
-
-step "greeter - the password field"
-  input 940 598
-  settle 1
-
-
-step "greeter - type the password"
-  input text "{{ password }}"
-  settle 2
-
-
-step "greeter - submit"
-  input ret
-  settle 15
-
-
-step "the desktop is up, which is what the login was for"
-  # SDDM'S OWN WORDS ARE THE NEGATIVE: a logged-in Plasma desktop shows none of "Hibernate", "Sleep",
-  # "Shut Down" or "Virtual Keyboard", and the greeter shows all three. `read` + `without` is the
-  # honest test - the alternative, waiting for a desktop word, has no frame in these runs to measure
-  # it against (there is no desktop-ssh reference for this guest), and a word guessed wrong fails a
-  # stage that is actually fine.
+# AUTOLOGIN IS ALREADY CONFIGURED ON THIS DISK - THE STAGE STARTS AT A DESKTOP.
+#
+# MEASURED on run 45934563759: a "greeter" step that waited for the word `vmuser` spent its whole
+# budget while the screen read "... the KDE ..." - a logged-in DESKTOP showing the Welcome Center,
+# not SDDM. The earlier frames I read as "never logged in" (run 45933118254, 40 s and 260 s) were a
+# session that had been LOGGED OUT by three alt+f4 presses: the first closed the Welcome Center, the
+# second and third closed the session itself and dropped it back to SDDM, which is why the password
+# field filled with dots. Autologin was never broken.
+#
+# So this waits for the desktop, and the desktop's own marker is `kubuntu` in the panel/wallpaper
+# branding - the same word SDDM carries, which is why the shape of this step matters: it waits for
+# the Welcome Center's body text ("welcome") that only a logged-in session draws, then closes it
+# ONCE.
+step "the desktop is up"
   repeat
     do
       item
         settle 5
       item "read the screen"
         read
-          name desk2
+          name desk0
     until
       bind up
-      source desk2
+      source desk0
+      mode text
+      rect [640, 180, 1280, 900]
+      rect_at [1920, 1080]
+      words [[welcome, center], [plasma]]
+    max 60
+
+
+# ONE alt+f4 CLOSES THE WELCOME CENTER; A SECOND WOULD CLOSE THE SESSION.
+#
+# MEASURED on run 45933118254: three alt+f4 presses took the guest from the Welcome Center to a
+# logged-out SDDM screen (the frame at 260 s is the greeter with the password field filling with
+# dots). cachyos presses twice and passes because its Welcome Center is the only window; here the
+# first press closes it and the second lands on the desktop with nothing to close - which on this
+# image logs the session out. ONE press, then the check below decides.
+step "close the welcome center, once"
+  settle_before 10
+  input alt+f4
+  settle 5
+
+
+# THE WINDOW MUST BE GONE BEFORE THE TERMINAL IS OPENED, OR IT TAKES THE KEYBOARD BACK.
+#
+# This is the check the earlier attempts lacked: five runs typed their commands into a Welcome Center
+# that the stage believed it had closed. `community` is a word from that window's own BODY ("...the
+# KDE community!"), so it is present while the window is up and absent once it is gone - and the
+# earlier [skip, next] guard passed while the screen still read "Pie community!" because the reader
+# had the body text and not the buttons.
+step "the welcome center is gone, so the terminal will get the keyboard"
+  repeat
+    do
+      item
+        input esc
+        settle 2
+      item "read the screen"
+        read
+          name gone
+    until
+      bind up
+      source gone
       mode text
       rect [0, 0, 1920, 1080]
       rect_at [1920, 1080]
-      without [hibernate, "shut down", "virtual keyboard"]
-    max 40
-
-
-step "let the welcome window appear, then close it"
-  settle 10
-  input alt+f4
-
-
-step "close anything else that took the foreground"
-  settle 5
-  input alt+f4
-
-
-step "close anything else again, because the first close can land on a splash"
-  settle 4
-  input alt+f4
+      without [community]
+    max 15
 
 
 step "open the terminal"
