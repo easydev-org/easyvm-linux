@@ -193,18 +193,21 @@ step "users - confirm password"
   settle 3
 
 
-step "users - root password"
-  input text "{{ password }}"
-    at 743 649
-    clear true
-  settle 3
-
-
-step "users - confirm root password"
-  input text "{{ password }}"
-    at 948 649
-    clear true
-  settle 3
+# A CHECKBOX BEATS TYPING THE SAME STRING TWICE - AND THE ADMIN ROW PROVED IT.
+#
+# MEASURED on run 45966200314's install recording, frames 215 / 220 / 225 s:
+#
+#	215 s  user Password has six dots, Repeat is EMPTY, red "do not match"
+#	220 s  BOTH user fields filled, green tick              <- the (743,520)/(948,520) fix worked
+#	225 s  admin Password has six dots, admin Repeat EMPTY, red "do not match"
+#
+# so the admin row's coordinates were still ~7 px high and its second click landed on the border.
+# Rather than chase nine pixels twice, the page's own checkbox is used: "Use the same password for
+# the administrator account" at (655,588), read off the same frame. ONE click, and Calamares copies
+# the user password into both admin fields itself - which is also exactly the intent.
+step "users - the administrator gets the same password"
+  input 655 588
+  settle 4
 
 
 # THE PAGE MUST BE ACCEPTED BEFORE THE NEXT CLICK MEANS ANYTHING. "Your passwords do not match!"
