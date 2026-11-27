@@ -569,7 +569,21 @@ step "enable and start ssh in one request"
   # services from starting during a package install, and on this image it is still in place - so
   # `systemctl start ssh.socket` is refused with no error. Removing it, re-enabling, and starting
   # again is what makes the socket real; `ssh.service` is started after it as a belt.
-  run "sudo sh -c 'rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload; systemctl unmask ssh ssh.socket 2>/dev/null; systemctl enable ssh.socket; systemctl start ssh.socket; sleep 1; systemctl start ssh; sleep 2; systemctl is-active ssh; systemctl is-active ssh.socket; ss -lnt | grep :22 || echo NO_LISTENER'; echo FIREWALL_OFF"
+  #
+  # AND THE FIREWALL MUST COME DOWN TOO - THIS LINE LOST IT, AND THAT COST A RUN.
+  #
+  # MEASURED on run 45961227643: the recording at 2194 s shows sshd PERFECTLY UP -
+  # `active`, `LISTEN 0 4096 0.0.0.0:22`, `LISTEN [::]:22` - and the probe still
+  # answered `dial tcp 172.30.0.1:2222: connect: no route to host` for its whole
+  # fifteen minutes, while `icmp guest` was `ICMP_OK 2/2` on the same host. ICMP
+  # passing and TCP/22 not is a FIREWALL, and the reason this file's earlier version
+  # carried `ufw disable` / `iptables -P INPUT ACCEPT` / `rp_filter=2` is exactly
+  # that: zorin is Ubuntu-based, ufw is enabled by default, and it drops incoming
+  # TCP while leaving echo-reply alone.
+  #
+  # When this step was rewritten to remove policy-rc.d, those lines went with it.
+  # They are back, in the same sh -c so they carry the same authentication.
+  run "sudo sh -c 'rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload; systemctl unmask ssh ssh.socket 2>/dev/null; systemctl enable ssh.socket 2>/dev/null; systemctl enable ssh 2>/dev/null; systemctl start ssh.socket 2>/dev/null; systemctl restart ssh; sleep 2; systemctl disable --now ufw 2>/dev/null; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; systemctl stop firewalld 2>/dev/null; iptables -P INPUT ACCEPT 2>/dev/null; iptables -F 2>/dev/null; nft flush ruleset 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active ssh; ss -lnt | grep :22 || echo NO_LISTENER'; echo FIREWALL_OFF"
   settle 10
   type_gap 0.09
 
