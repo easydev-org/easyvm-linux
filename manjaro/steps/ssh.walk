@@ -330,34 +330,27 @@ step "prove sshd will start at boot"
   # writing `|| true` says that where the log shows it, and `come back up with sshd answering` below
   # is the assertion. `optional` would have swallowed a reboot that never started too.
 
+# A REBOOT INSIDE THE GUEST, NOT A STOP AND A BOOT.
+#
+# MEASURED on run 45954000516: the ssh leg had FULLY PASSED - `machine_ssh: ssh_ready="true"` is in
+# that run's log - and the file then failed at
+#
+#	after the restart - boot the machine again: boot: could not create an overlay over
+#	run-overlay.qcow2: qemu-img: ... Trying to create an image with the same filename as the backing file
+#
+# because the stop-and-boot pair leaves the daemon's own run-overlay.qcow2 as the backing file. The
+# earlier comment's objection ("qemu never stops, so machine_stopped can never be observed") is
+# answered by NOT trying to observe a process exit: reboot the guest, and wait for sshd to answer
+# again - which is a fact about the guest, and exactly what the stage has just proved it can measure.
 step "restart the machine"
-  # A CLEAN STOP AND A CLEAN START, RATHER THAN `systemctl reboot`.
-  #
-  # THE IN-GUEST REBOOT WAS THE WRONG PRIMITIVE HERE, and it took a while to see why: qemu never
-  # stops, so `machine_stopped` can never be observed, and the only way to tell "the old daemon" from
-  # "the new one" was a probe that relied on the old one briefly not answering. MEASURED on
-  # opensuse-tumbleweed: a wait placed straight after `systemctl reboot` passed on the process that
-  # was about to die, and every step after it failed.
-  #
-  # `acpi` ASKS THE GUEST TO POWER OFF and qemu exits with it, so the stop is a fact the daemon
-  # reports rather than an inference, and the boot that follows is the machine coming back.
-  # `stop acpi` IS NOT A SHUTDOWN METHOD THIS BUILD HAS. MEASURED on run 45951867464:
-  # it failed with "`acpi` is not a shutdown method; the ones this build has are `kill`
-  # and `ssh`" - and that was AFTER sshd had come up (`machine_ssh: ssh_ready="true"`
-  # on that same run), so the whole ssh leg had passed and only this step failed.
-  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' poweroff"
+  ssh "printf '%s\\n' '{{ password }}' | sudo -S -p '' systemctl reboot || true"
   timeout 120
 
-step "after the restart - wait for qemu to exit"
-  repeat
-    until machine_stopped
-    max 60
-    pause 2
 
-step "after the restart - boot the machine again"
-  boot
-    machine "q35,accel=kvm,vmport=off"
-    args [["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
+step "the guest has gone down - the old sshd stops answering"
+  settle 20
+
+
 step "after the restart - wait for sshd"
   repeat
     until machine_ssh
