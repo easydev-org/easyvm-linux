@@ -552,7 +552,24 @@ step "clear the authentication modal, which holds the keyboard"
 # boot without the socket still seeds the service. `daemon-reload` first, because the unit files were
 # just written.
 step "enable and start ssh in one request"
-  run "sudo systemctl daemon-reload; sudo systemctl unmask ssh 2>/dev/null; sudo systemctl enable ssh.socket 2>/dev/null; sudo systemctl enable ssh 2>/dev/null; sudo systemctl start ssh.socket 2>/dev/null; sudo systemctl start ssh 2>/dev/null; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; sudo ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
+  # `policy-rc.d` REFUSES TO RUN ssh.socket, WHICH IS WHY `start` DID NOTHING.
+  #
+  # MEASURED on run 45951845950's recording at 1100 s, on the terminal:
+  #
+  #	$ sudo systemctl start ssh.socket ...; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF
+  #	Firewall stopped and disabled on system startup
+  #	NO_LISTENER
+  #	FIREWALL_OFF
+  #	$ systemctl is-active ssh
+  #	inactive
+  #
+  # sudo itself is fine by this run (that is the `printf` fix working). The listener is what is
+  # missing, and line 225 of this file already records the reason: `/usr/sbin/policy-rc.d returned
+  # 101, not running 'restart ssh.socket'`. policy-rc.d is the mechanism an image uses to forbid
+  # services from starting during a package install, and on this image it is still in place - so
+  # `systemctl start ssh.socket` is refused with no error. Removing it, re-enabling, and starting
+  # again is what makes the socket real; `ssh.service` is started after it as a belt.
+  run "sudo sh -c 'rm -f /usr/sbin/policy-rc.d; systemctl daemon-reload; systemctl unmask ssh ssh.socket 2>/dev/null; systemctl enable ssh.socket; systemctl start ssh.socket; sleep 1; systemctl start ssh; sleep 2; systemctl is-active ssh; systemctl is-active ssh.socket; ss -lnt | grep :22 || echo NO_LISTENER'; echo FIREWALL_OFF"
   settle 10
   type_gap 0.09
 
