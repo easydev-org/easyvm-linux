@@ -155,32 +155,78 @@ step "users - login name"
   settle 2
 
 
+# THE CONFIRM FIELD NEVER GOT FOCUS, SO THE DISK WAS INSTALLED WITH NO PASSWORD.
+#
+# MEASURED on run 45743714434's install recording (the one that produced the disk every ssh run
+# used), frame by frame:
+#
+#	208 s  both password fields empty, green ticks (Calamares' initial "nothing typed yet" state)
+#	216 s  Password shows SIX dots and the CARET IS STILL IN THAT BOX;
+#	       Repeat Password is EMPTY, the row says in red "Your passwords do not match!",
+#	       and the Next button is GREY (disabled)
+#
+# So the six characters went into the FIRST field a second time and the confirm field was never
+# focused. The walk then clicked Next at (1325,801) on a DISABLED button - which does nothing - and
+# carried on, so the installed account had no password at all. That is why every later ssh stage
+# reported `sudo: a password is required` / `3 incorrect password attempts` on this disk, and why
+# `admin1` was never the account's password however many times the ssh walk was fixed.
+#
+# THE TWO FIELDS' CENTRES, READ OFF THAT FRAME (crop (630,495)-(1070,535) scaled 3x):
+#	Password          (745, 518)
+#	Repeat Password   (948, 518)
+#	admin password    (745, 645)
+#	admin repeat      (948, 645)
+# The old values were all 16-17 px high, inside the field but on its top border, where a click
+# lands on the label row instead of the entry. `click: true` (typed after a real click on the
+# field) is what these now do; `at` alone was the part that did not take.
 step "users - password"
   input text "{{ password }}"
-    at 724 523
+    at 743 520
     clear true
-  settle 2
+  settle 3
 
 
 step "users - confirm password"
   input text "{{ password }}"
-    at 944 523
+    at 948 520
     clear true
-  settle 2
+  settle 3
 
 
 step "users - root password"
   input text "{{ password }}"
-    at 741 650
+    at 743 649
     clear true
-  settle 2
+  settle 3
 
 
 step "users - confirm root password"
   input text "{{ password }}"
-    at 944 650
+    at 948 649
     clear true
   settle 3
+
+
+# THE PAGE MUST BE ACCEPTED BEFORE THE NEXT CLICK MEANS ANYTHING. "Your passwords do not match!"
+# leaves Next disabled, and a click on a disabled button is silently discarded - which is exactly how
+# a stage ends with an account that has no password. This waits for the red row to be GONE, then
+# clicks Next; if the row is still there the stage fails HERE, at the page that caused it.
+step "the password page accepts its own values"
+  repeat
+    do
+      item
+        settle 2
+      item "read the page"
+        read
+          name users
+    until
+      bind up
+      source users
+      mode text
+      rect [630, 380, 1480, 700]
+      rect_at [1920, 1080]
+      without [do, not, match]
+    max 20
 
 
 step "users"
