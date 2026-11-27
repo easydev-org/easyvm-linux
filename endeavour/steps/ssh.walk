@@ -246,7 +246,7 @@ step "allow password authentication"
   # follows in the same terminal - then the rest needs no password at all.
 step "unlock sudo for the whole stage, once"
   run "sudo -v && echo SUDO_UNLOCKED"
-  terminal_wait 5
+  settle 5
 
 
 step "make the host keys, in a run: - ssh: cannot run before sshd exists"
@@ -258,7 +258,7 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # once sshd is already up, which is exactly what it is supposed to cause. cachyos, which passes,
   # does the keygen in a `run:` before anything waits. This is that step.
   run "sudo mkdir -p /etc/ssh; sudo ssh-keygen -A 2>&1 | tail -4; sudo test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING"
-  terminal_wait 8
+  settle 10
 
 
 step "enable sshd at boot"
