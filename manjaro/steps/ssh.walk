@@ -229,7 +229,7 @@ step "install openssh"
   # partial-upgrade trap: `-Sy` refreshes the index and then resolves against the newest packages, and
   # this disk's openssl is older than what the mirror carries. `--ignore openssl*` installs openssh
   # against the packages the disk already has.
-  run "sudo -n pacman -S --noconfirm --needed --assume-installed libcrypto.so=4-64 --assume-installed libssl.so=4-64 --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'pacman -S --noconfirm --needed --assume-installed libcrypto.so=4-64 --assume-installed libssl.so=4-64 --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5'"
   settle 60
   terminal_wait 0
 
@@ -243,7 +243,8 @@ step "allow password authentication"
   #
   # `printf '%s\n' 'PasswordAuthentication yes'` puts the newline in the FORMAT, not in the quoted
   # text, so there is nothing for the walk to eat.
-  run "sudo -n sh -c 'echo PasswordAuthentication yes > /etc/ssh/sshd_config.d/99-vm.conf'; sudo -n grep -q '^PasswordAuthentication yes' /etc/ssh/sshd_config.d/99-vm.conf && echo VM_CONF_OK || echo VM_CONF_FAIL"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'echo PasswordAuthentication yes > /etc/ssh/sshd_config.d/99-vm.conf; grep -q PasswordAuthentication /etc/ssh/sshd_config.d/99-vm.conf && echo VM_CONF_OK || echo VM_CONF_FAIL'"
+
   settle 3
   terminal_wait 0
 
@@ -286,12 +287,14 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # never shown because `tail -6` kept only the last lines. This version re-unlocks with the password
   # in the same line (so it cannot depend on an earlier timestamp), uses the absolute path, and
   # prints each step's own status.
-  run "sudo -n sh -c 'mkdir -p /etc/ssh && echo MKDIR_OK; /usr/bin/ssh-keygen -A 2>&1 | tail -3; ls -l /etc/ssh/ssh_host_ed25519_key 2>&1; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh; /usr/bin/ssh-keygen -A; ls /etc/ssh/ssh_host_ed25519_key >/dev/null 2>&1 && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
+
   settle 10
 
 
 step "enable sshd at boot"
-  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF'"
+
   settle 8
   terminal_wait 0
 
@@ -312,7 +315,7 @@ step "enable sshd at boot"
 # the drop-ins; only then can `restart` succeed. `journalctl -xeu sshd` is printed on failure so the
 # next run names the reason instead of "it failed".
 step "start sshd, after a daemon-reload so the drop-ins are seen"
-  run "sudo -n systemctl daemon-reload; sudo -n systemctl restart sshd; sleep 2; systemctl is-active sshd; ss -lnt | grep ':22 ' || echo NO_LISTENER"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl daemon-reload; systemctl restart sshd; sleep 2; systemctl is-active sshd; ss -lnt | grep '\'':22 '\'' || echo NO_LISTENER'"
   settle 10
   terminal_wait 0
 
@@ -351,7 +354,8 @@ step "pin port 22 and show what the guest is actually listening on"
   #
   # `printf '%s\n' "Port 22" "ListenAddress 0.0.0.0"` has no escape inside the quoted text at all -
   # the newline comes from the format string's `\n`, written doubled.
-  run "sudo -n sh -c 'echo Port 22 > /etc/ssh/sshd_config.d/98-port.conf; echo ListenAddress 0.0.0.0 >> /etc/ssh/sshd_config.d/98-port.conf'; sudo -n systemctl daemon-reload; sudo -n systemctl restart sshd; sleep 3; sudo -n systemctl is-active sshd; sudo -n ss -ltnp | grep ':22 ' || echo NO_LISTENER"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'echo Port 22 > /etc/ssh/sshd_config.d/98-port.conf; echo ListenAddress 0.0.0.0 >> /etc/ssh/sshd_config.d/98-port.conf; systemctl daemon-reload; systemctl restart sshd; sleep 3; systemctl is-active sshd; ss -lnt | grep \":22 \" || echo NO_LISTENER'"
+
   settle 12
   terminal_wait 0
 
