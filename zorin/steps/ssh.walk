@@ -276,8 +276,20 @@ step "dismiss the updater's authentication panel"
       settle 2
 
 
-step "keep the screen on, with the tool this guest actually has"
-  run "gsettings set org.gnome.desktop.session idle-delay 0"
+# THIS GUEST BLANKS THE DISPLAY AND THE RECORDING GOES BLACK - MEASURED TWICE.
+#
+# MEASURED on run 45980128207: every frame from 1100 s to the end is a UNIFORM BLACK
+# IMAGE, and on 45973849707 the same. A blanked display does not stop the guest from
+# working, but it makes the whole stage unreadable - and unverifiable - for its
+# remaining twenty minutes, which is most of the failure analysis this file needs.
+#
+# `idle-delay 0` alone is not enough on GNOME: the screen blanker also has
+# `idle-activation-enabled`, the power manager has its own dpms timeouts, and a
+# compositor can blank independently. All three are turned off here, and the X
+# server's own blanker as a belt. Every command is `|| true`: the point is the
+# unlock that follows, and a gsettings key this image lacks must not fail the step.
+step "keep the screen on, with the tools this guest actually has"
+  run "sudo -n true 2>/dev/null; gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null; gsettings set org.gnome.desktop.screensaver idle-activation-enabled false 2>/dev/null; gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null; gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing 2>/dev/null; gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 0 2>/dev/null; xset s off 2>/dev/null; xset -dpms 2>/dev/null; xset s noblank 2>/dev/null; echo SCREEN_KEPT_ON 2>/dev/null || true"
   settle 4
 # THE SOFTWARE UPDATER STEALS FOCUS AND THE LONG COMMANDS ARRIVE IN PIECES.
 #
