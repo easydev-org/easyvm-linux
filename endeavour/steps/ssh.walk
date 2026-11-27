@@ -178,7 +178,7 @@ step "open the terminal"
   # character of that command arrived in capitals (the shift state again). The probe cost nothing to
   # remove and removes the seam: the first thing typed after the chord is the command that matters.
 
-step "keep the screen on and unlock sudo"
+step "keep the screen on and unlock sudo, before anything needs it"
   # THIS GUEST HAS NO `xset`: its blanking is Xfce's own DPMS. MEASURED on run
   # 45941267442's final second - a BLACK FRAME, the display switched off during the wait.
   # `xfconf-query` turns dpms and blanking off; `xset` stays as a best-effort first choice.
@@ -216,13 +216,13 @@ step "install openssh"
   # partial-upgrade trap: `-Sy` refreshes the index and then resolves against the newest packages, and
   # this disk's openssl is older than what the mirror carries. `--ignore openssl*` installs openssh
   # against the packages the disk already has.
-  run "(command -v xset >/dev/null && xset s off && xset s noblank) || true; printf '%s\\n' {{ password }} | sudo -S -p '' pacman -Sy --noconfirm --needed --ignore openssl* openssh 2>&1 | tail -5"
+  run "(command -v xset >/dev/null && xset s off && xset s noblank) || true; sudo -n pacman -S --noconfirm --needed --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
   settle 45
   terminal_wait 0
 
 
 step "allow password authentication"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf \"PasswordAuthentication yes\\n\" > /etc/ssh/sshd_config.d/99-vm.conf; sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config; grep -q \"^PasswordAuthentication yes\" /etc/ssh/sshd_config || printf \"PasswordAuthentication yes\\n\" >> /etc/ssh/sshd_config' 2>&1 | tail -3"
+  run "sudo -n sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf \"PasswordAuthentication yes\\n\" > /etc/ssh/sshd_config.d/99-vm.conf; sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config; grep -q \"^PasswordAuthentication yes\" /etc/ssh/sshd_config || printf \"PasswordAuthentication yes\\n\" >> /etc/ssh/sshd_config' 2>&1 | tail -3"
   settle 3
   terminal_wait 0
 
@@ -244,25 +244,6 @@ step "allow password authentication"
   #
   # The fix is `sudo -S -v` FIRST, on its own line, which seeds the timestamp for every sudo that
   # follows in the same terminal - then the rest needs no password at all.
-step "unlock sudo for the whole stage, once"
-  # THE PASSWORD GOES IN THROUGH THE PIPE, NOT THE KEYBOARD.
-  #
-  # MEASURED on run 45949016408's recording at 500 s, on the terminal:
-  #
-  #	[sudo] password for vmuser:
-  #	sudo: PAM authentication error: Authentication token manipulation error
-  #	sudo: a password is required
-  #	[sudo] password for vmuser:
-  #	Sorry, try again.
-  #
-  # A bare `sudo -v` waits for TTY input, and what the walk TYPES into it arrives with
-  # `type_gap 0.09`-style pacing that sudo's own read can cut short - and the first attempt also
-  # raises the "lecture" block, which delays the read further. `echo pw | sudo -S -v` hands the
-  # password over as a complete line from stdin, which is what every other Linux stage here does.
-  run "printf '%s\\n' {{ password }} | sudo -S -v 2>&1 | tail -2; sudo -n true && echo SUDO_UNLOCKED || echo SUDO_LOCKED"
-  settle 5
-
-
 step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # sshd REFUSES TO START WITHOUT HOST KEYS, AND THIS FILE NEVER MADE ANY IN A `run:`.
   #
@@ -271,18 +252,18 @@ step "make the host keys, in a run: - ssh: cannot run before sshd exists"
   # `ssh-keygen -A` is inside an `ssh:` step (line ~257), which runs OVER ssh - so it can only work
   # once sshd is already up, which is exactly what it is supposed to cause. cachyos, which passes,
   # does the keygen in a `run:` before anything waits. This is that step.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh; ssh-keygen -A; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING' 2>&1 | tail -6"
+  run "sudo -n sh -c 'mkdir -p /etc/ssh; ssh-keygen -A; test -s /etc/ssh/ssh_host_ed25519_key && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING' 2>&1 | tail -6"
   settle 10
 
 
 step "enable sshd at boot"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "sudo -n sh -c 'systemctl start sshd.socket 2>/dev/null; systemctl enable sshd; ufw disable 2>/dev/null; systemctl disable --now firewalld 2>/dev/null; sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; systemctl is-active sshd; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF' 2>&1 | tail -8"$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 
 
 step "start sshd"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart sshd 2>&1 | tail -3"
+  run "sudo -n systemctl restart sshd 2>&1 | tail -3"
   settle 10
   terminal_wait 0
 
