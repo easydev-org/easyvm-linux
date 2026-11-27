@@ -82,34 +82,40 @@ step "the session is up, which is what autologin is for"
 
 
 step "close the welcome centre, which takes the keyboard"
-  # THE CLICK ON SKIP DOES NOT TAKE; THE WINDOW CLOSE BUTTON DOES.
+  # SKIP, Alt+F4 AND THE TITLE BAR'S X WERE ALL MEASURED NOT TO CLOSE THIS WINDOW.
   #
-  # MEASURED on runs 45916721322 and 45925821992: frames minutes apart are IDENTICAL - "Welcome
-  # Center" still up, clock advancing - while three clicks at Skip's measured centre (688,816) and
-  # every `run:` below did nothing. The terminal IS behind it (its `vmuser@kubuntu:` prompt shows in
-  # the strip at the left), so ctrl+alt+t worked; the Welcome Center keeps the KEYBOARD.
+  # Runs 45916721322, 45925821992, 45928837046, 45930420082: every frame has the Welcome Center in
+  # front of an ALREADY OPEN terminal (its `vmuser@kubuntu:` title bar shows at x~530), and neither
+  # three clicks at Skip's measured centre (688,816), nor Alt+F4, nor the titlebar X at (1270,251)
+  # removed it. Plasma's first-run page keeps the keyboard no matter what the pointer does.
   #
-  # So the window is CLOSED rather than skipped through: Alt+F4 is the window manager's own close
-  # and needs no coordinate, and the title bar's X at (1270,251) - read off the same frame - is the
-  # fallback for a frame where Alt+F4 was swallowed. Both are tried, twice.
+  # SO IT IS KILLED FROM THE TERMINAL IT IS COVERING. The terminal's visible left strip is at
+  # x 509..635; a click at (570,600) lands on it and gives it the FOCUS, even though the Welcome
+  # Center is still drawn over the rest - focus follows the click, not the visible stacking. The
+  # command then removes the process itself, which is the only thing that has closed this window in
+  # any recording.
   do
     item
-      input alt+f4
-      settle 3
+      input 570 600
+      settle 2
     item
-      input 1270 251
-      settle 3
-    item
-      input alt+f4
-      settle 3
+      input 570 600
+      settle 2
+
+
+step "kill the welcome center from the terminal it is covering"
+  # NO `terminal_wait:` HERE: it would press ctrl+alt+t and start a SECOND terminal over the first,
+  # which is the exact mistake an earlier step in this file documents. The click above already gave
+  # the visible terminal the focus.
+  run "pkill -f plasma-welcome; killall plasma-welcome 2>/dev/null; sleep 1; echo WELCOME_KILLED"
+  settle 6
 
 
 step "the welcome centre is gone, so the keyboard belongs to the terminal"
   repeat
     do
       item
-        input esc
-        settle 2
+        settle 3
       item "read the screen"
         read
           name desk
@@ -117,15 +123,14 @@ step "the welcome centre is gone, so the keyboard belongs to the terminal"
       bind up
       source desk
       mode text
-      rect [640, 180, 1280, 900]
+      rect [0, 180, 1920, 900]
       rect_at [1920, 1080]
-      # `community` IS A WORD ONLY THE WELCOME CENTER SHOWS ("The KDE mascot Konqi welcomes you to
-      # the KDE community!"). The first form of this check used [skip, next] and PASSED on a run whose
-      # screen read "Pie community!" - the OCR had picked up the body text but not the buttons, so the
-      # guard said "gone" while the window was still up. A word from the BODY is what the reader
-      # reliably sees.
+      # `community` IS A WORD ONLY THE WELCOME CENTER BODY HAS ("...welcomes you to the KDE
+      # community!"). The first form of this check used [skip, next] and PASSED on a run whose screen
+      # read "Pie community!" - the reader had the body text but not the buttons, so the guard said
+      # "gone" while the window was still up. A word from the BODY is what is reliably read.
       without [community]
-    max 12
+    max 20
 
 
 step "clear anything the welcome centre left behind"
