@@ -235,6 +235,20 @@ step "the install finishes"
     max 120
 
 
+# THE INSTALLER SAYS "RESTART" BEFORE IT HAS WRITTEN GRUB, AND `stop kill` DOES NOT WAIT FOR IT.
+#
+# MEASURED on run 45916738708 (the mint ssh stage): the published disk boots to a bare `grub>`
+# prompt - GRUB's own shell, with no menuentry to run - while `grub.cfg` on the same disk is present.
+# That is the signature of a bootloader installed but its configuration not yet flushed when the
+# machine was killed. A `stop kill` terminates qemu at once; anything the installer had written and
+# not fsynced is whatever qemu had already flushed, which is a race, not a guarantee.
+#
+# THE DISTROS THAT PASS HAVE THIS STEP and mint did not: anduinos, popos and ubuntu all wait twenty
+# seconds between "ready to use" and the kill, with the comment "ready to use is not flushed".
+step "give the installer its last few seconds, because \"restart\" is not \"flushed\""
+  settle 25
+
+
 step "stop the machine"
   stop kill
   timeout 120

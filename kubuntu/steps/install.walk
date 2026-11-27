@@ -277,6 +277,16 @@ step "the install is done"
     max 60
 
 
+# THE INSTALLER SAYS IT IS DONE BEFORE ITS BOOTLOADER IS FLUSHED.
+#
+# MEASURED on mint's published disk (run 45916738708): it boots to a bare `grub>` prompt although
+# grub.cfg exists - a bootloader installed and its configuration not yet fsynced when `stop kill`
+# terminated qemu. anduinos, popos and ubuntu pass and all of them settle twenty seconds between
+# "ready to use" and the kill; this is the same wait.
+step "give the installer its last few seconds, because \"done\" is not \"flushed\""
+  settle 25
+
+
 step "stop the machine"
   stop kill
   timeout 600
