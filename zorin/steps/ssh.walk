@@ -288,22 +288,33 @@ step "dismiss the updater's authentication panel"
 # compositor can blank independently. All three are turned off here, and the X
 # server's own blanker as a belt. Every command is `|| true`: the point is the
 # unlock that follows, and a gsettings key this image lacks must not fail the step.
-step "keep the screen on, with the tools this guest actually has"
-  run "sudo -n true 2>/dev/null; gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null; gsettings set org.gnome.desktop.screensaver idle-activation-enabled false 2>/dev/null; gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null; gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type nothing 2>/dev/null; gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-timeout 0 2>/dev/null; xset s off 2>/dev/null; xset -dpms 2>/dev/null; xset s noblank 2>/dev/null; echo SCREEN_KEPT_ON 2>/dev/null || true"
-  settle 4
-# THE SOFTWARE UPDATER STEALS FOCUS AND THE LONG COMMANDS ARRIVE IN PIECES.
+# SHORT COMMANDS. THE ONE-LINER LOST CHARACTERS AND POISONED EVERY COMMAND AFTER IT.
 #
-# MEASURED ON RUN 44588531483, whose terminal at 150 s reads fragments - 'echo SCRE', 'SCREEN_KEP',
-# 'sudo sys', '-upgrade.s', 'SUDO AT_' - with a '>' continuation prompt under them, while the
-# Software Updater sits over the window. '>' means zsh is waiting for a quote to close, and the
-# fragments are what is left of commands whose characters went to the dialog instead.
+# MEASURED on run 45985292395's recording at 700 s, on the terminal:
 #
-# `sudo` IS UNLOCKED FIRST, BECAUSE `pkill` AS THE USER CANNOT KILL A ROOT-OWNED UPDATER.
+#	SCREEN_KKEET_ON                      <- my echo, misspelled on the way in
+#	$ ssudo pkill -f gnome-software      <- `sudo` became `ssudo`
+#	Command 'ssudo' not found
+#	$ udoo systemctl stop packagekit     <- `sudo` became `udoo`
 #
-# MEASURED: "pkill: killing pid 1022 failed: Operation not permitted" - the updater runs as root,
-# so the unprivileged pkill this file used did nothing and the panel kept coming back. Authenticate
-# once, then kill it with the authority to do so.
+# A single `run:` with six `gsettings`, three `xset` and an echo is ~470 characters
+# typed at the walk's per-character gap; on this guest some keystrokes were dropped
+# or duplicated and the corruption carried into the FOLLOWING commands. Splitting
+# it into three short lines means a lost keystroke can only damage one line, and the
+# step's own echo proves it arrived.
+step "keep the screen on - idle delay"
+  run "gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null; echo SCREEN_1"
+  settle 2
 
+
+step "keep the screen on - screensaver"
+  run "gsettings set org.gnome.desktop.screensaver idle-activation-enabled false 2>/dev/null; echo SCREEN_2"
+  settle 2
+
+
+step "keep the screen on - xset"
+  run "xset s off 2>/dev/null; xset -dpms 2>/dev/null; xset s noblank 2>/dev/null; echo SCREEN_3"
+  settle 2
 
 step "unlock sudo once for this session"
   # `printf '%s\\n'` IS THE FORM THAT WORKS - A PIPE WITH `echo` DOES NOT END THE PASSWORD.
