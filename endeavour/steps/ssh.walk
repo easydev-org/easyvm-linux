@@ -179,7 +179,10 @@ step "open the terminal"
   # remove and removes the seam: the first thing typed after the chord is the command that matters.
 
 step "keep the screen on and unlock sudo"
-  run "printf '%s\\n' {{ password }} | sudo -S -v; /usr/bin/xset s off; /usr/bin/xset s noblank"
+  # THIS GUEST HAS NO `xset`: its blanking is Xfce's own DPMS. MEASURED on run
+  # 45941267442's final second - a BLACK FRAME, the display switched off during the wait.
+  # `xfconf-query` turns dpms and blanking off; `xset` stays as a best-effort first choice.
+  run "printf '%s\\n' {{ password }} | sudo -S -v; (command -v xset >/dev/null && xset s off && xset -dpms && xset s noblank) || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-enabled -n -t bool -s false 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/blank-on-ac -n -t int -s 0 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-on-ac-sleep -n -t int -s 0 2>/dev/null || true; xfconf-query -c xfce4-power-manager -p /xfce4-power-manager/dpms-on-ac-off -n -t int -s 0 2>/dev/null || true; echo SCREEN_KEPT_ON"
   settle 6
   terminal_wait 0
 
@@ -212,7 +215,7 @@ step "allow password authentication"
 
 
 step "enable sshd at boot"
-  run "echo {{ password }} | sudo -S systemctl enable sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1; echo {{ password }} | sudo -S -p '' systemctl disable --now firewalld 2>&1; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
+  run "echo {{ password }} | sudo -S systemctl start sshd.socket 2>/dev/null; echo {{ password }} | sudo -S systemctl enable sshd 2>&1 | tail -3; echo {{ password }} | sudo -S -p '' ufw disable 2>&1; echo {{ password }} | sudo -S -p '' systemctl disable --now firewalld 2>&1; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
   settle 8
   terminal_wait 0
 
