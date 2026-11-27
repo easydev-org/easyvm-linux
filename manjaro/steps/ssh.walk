@@ -185,7 +185,7 @@ step "install openssh"
   # partial-upgrade trap: `-Sy` refreshes the index and then resolves against the newest packages, and
   # this disk's openssl is older than what the mirror carries. `--ignore openssl*` installs openssh
   # against the packages the disk already has.
-  run "sudo -n pacman -S --noconfirm --needed --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
+  run "sudo -n pacman -S --noconfirm --needed --assume-installed libcrypto.so=4-64 --assume-installed libssl.so=4-64 --ignore openssl --ignore openssl-libs openssh 2>&1 | tail -5"
   settle 60
   terminal_wait 0
 
@@ -229,6 +229,7 @@ step "unlock sudo for the whole stage, once"
   # raises the "lecture" block, which delays the read further. `echo pw | sudo -S -v` hands the
   # password over as a complete line from stdin, which is what every other Linux stage here does.
   run "printf '%s\\n' {{ password }} | sudo -S -v 2>&1 | tail -2; sudo -n true && echo SUDO_UNLOCKED || echo SUDO_LOCKED"
+  type_gap 0.15
   settle 5
 
 
