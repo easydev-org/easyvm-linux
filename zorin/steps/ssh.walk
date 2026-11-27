@@ -637,9 +637,18 @@ step "sshd authenticates against shadow, because this image ships no PAM service
 # It is also OPTIONAL on purpose: `enable --now ssh` two steps up has already started a listener that
 # answers. This step improves the config the listener is using; it must not be able to fail a stage
 # whose sshd is already up, which is exactly what a blank screen made it do.
-step "reload so the drop-in is read, without stopping the listener"
-  run "sudo systemctl reload ssh 2>/dev/null || sudo systemctl restart ssh --no-block; sleep 2; echo SSHD_RELOADED || true"
-  settle 8
+# `reload` DOES NOT START A STOPPED sshd - `restart` DOES.
+#
+# MEASURED on run 45956459330's recording at 1400 s: the terminal shows `active` and
+# `LISTEN 0 4096 0.0.0.0:22` on the same screen as `SSHD_RELOADED` - so sshd DID come up, but only
+# by the END of the stage, after `wait for sshd` had already spent its fifteen minutes on
+# `no route to host` / `Connection refused`. `reload` re-reads the config of a RUNNING daemon; if the
+# unit was still not started (policy-rc.d had refused it earlier), reload is a no-op and the daemon
+# appears only when something later starts it. `restart` starts it either way, and is what this
+# step must use now that the config is known good.
+step "restart ssh so the drop-in is read AND the daemon is running"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl restart ssh 2>&1 | tail -2; sleep 3; systemctl is-active ssh; ss -lnt | grep ':22 ' || echo NO_LISTENER"
+  settle 6
   type_gap 0.09
 
 
