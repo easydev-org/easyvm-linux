@@ -171,16 +171,27 @@ step "open the terminal"
 # so every `sudo -n` before it answered "sudo: a password is required", pacman never ran, and
 # sshd_config never appeared. The unlock is moved here, and split into the two steps that work on
 # zsh: `run` types the command, `input text` types the password as the next line.
+# ONE LINE, ONE PIPE - NOT `run` + `input text`, WHICH LANDED IN A zsh CONTINUATION PROMPT.
+#
+# MEASURED on run 45977202112's recording at 450 s, on the terminal:
+#
+#	> sudo -S -v
+#	[sudo] password for vmuser:
+#	Sorry, try again.
+#	... 3 incorrect password attempts
+#
+# The leading `>` is zsh's CONTINUATION prompt: the `input text` that followed the `run` was
+# swallowed as a continuation line rather than handed to sudo, so sudo read an empty line three
+# times and gave up. (zsh keeps the previous command "open" until a newline arrives from the same
+# input source.)
+#
+# `printf '%s\n' pw | sudo -S -v` in ONE `run:` gives sudo a complete line through a real pipe -
+# the form kubuntu's passing stage uses. The `\n` is written doubled so the walk hands the shell a
+# real backslash-n instead of a newline in the source.
 step "unlock sudo, before anything needs it"
-  run "sudo -S -v"
-  type_gap 0.15
-  settle 2
-
-
-step "answer sudo's password prompt"
-  input text "{{ password }}"
-  type_gap 0.15
+  run "printf '%s\\n' {{ password }} | sudo -S -v"
   settle 4
+  type_gap 0.15
 
 
 step "install openssh"
