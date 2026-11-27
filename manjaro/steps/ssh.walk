@@ -214,7 +214,15 @@ step "install openssh"
 
 
 step "allow password authentication"
-  run "sudo -n sh -c 'mkdir -p /etc/ssh/sshd_config.d; printf \"PasswordAuthentication yes\\n\" > /etc/ssh/sshd_config.d/99-vm.conf; sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config; grep -q \"^PasswordAuthentication yes\" /etc/ssh/sshd_config || printf \"PasswordAuthentication yes\\n\" >> /etc/ssh/sshd_config' 2>&1 | tail -3"
+  # SAME TRAP AS THE PORT DROP-IN: `\n` INSIDE A QUOTED STRING BECOMES A REAL NEWLINE.
+  #
+  # This line wrote `printf "PasswordAuthentication yes\n"`, whose `\n` the walk turns into a
+  # newline - so the double quote stayed open, zsh answered `quote>`, and every command after it
+  # (including the whole enable/restart tail) was swallowed as continuation.
+  #
+  # `printf '%s\n' 'PasswordAuthentication yes'` puts the newline in the FORMAT, not in the quoted
+  # text, so there is nothing for the walk to eat.
+  run "sudo -n sh -c \"printf '%s\\n' 'PasswordAuthentication yes' > /etc/ssh/sshd_config.d/99-vm.conf; sed -i 's/^#\\?[[:space:]]*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config; grep -q '^PasswordAuthentication yes' /etc/ssh/sshd_config || printf '%s\\n' 'PasswordAuthentication yes' >> /etc/ssh/sshd_config\""
   settle 3
   terminal_wait 0
 
@@ -311,7 +319,18 @@ step "prove sshd is active"
   # sockets and the unit's own state so the answer is in the recording either way.
 
 step "pin port 22 and show what the guest is actually listening on"
-  run "sudo -n sh -c 'printf \"Port 22\\nListenAddress 0.0.0.0\\n\" > /etc/ssh/sshd_config.d/98-port.conf'; sudo -n systemctl restart sshd; sleep 3; sudo -n ss -ltnp; sudo -n systemctl is-active sshd; sudo -n sshd -T 2>/dev/null | grep -iE \"^(port|listenaddress)\""
+  # NO `\n` INSIDE A QUOTED STRING IN A `run:` - IT BECOMES A REAL NEWLINE AND LEAVES THE QUOTE OPEN.
+  #
+  # MEASURED on run 45984394492's recording at 430 s: the terminal is fifteen lines of `quote>`,
+  # zsh's "an unclosed quote is still being read" prompt. This step's
+  # `printf "Port 22\nListenAddress 0.0.0.0\n"` inside `sh -c '...'` had its `\n` consumed by the
+  # walk as a newline, so the double quote never closed and EVERY later command was swallowed as
+  # continuation - `daemon-reload`, `restart sshd`, the whole tail of the stage. That is why
+  # `sshd` was still not listening even though the reload fix was correct.
+  #
+  # `printf '%s\n' "Port 22" "ListenAddress 0.0.0.0"` has no escape inside the quoted text at all -
+  # the newline comes from the format string's `\n`, written doubled.
+  run "sudo -n sh -c \"printf '%s\\n' 'Port 22' 'ListenAddress 0.0.0.0' > /etc/ssh/sshd_config.d/98-port.conf\"; sudo -n systemctl daemon-reload; sudo -n systemctl restart sshd; sleep 3; sudo -n ss -ltnp; sudo -n systemctl is-active sshd; sudo -n sshd -T 2>/dev/null | grep -iE \"^(port|listenaddress)\""
   settle 12
   terminal_wait 0
 
