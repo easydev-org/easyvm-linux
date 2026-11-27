@@ -125,7 +125,7 @@ step "the welcome centre is gone, so the keyboard belongs to the terminal"
       mode text
       rect [640, 180, 1280, 900]
       rect_at [1920, 1080]
-      none [[welcome, center]]
+      without [skip, next]
     max 12
 
 
