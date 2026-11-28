@@ -433,6 +433,23 @@ step "refresh sudo so the install asks for nothing"
   run "printf '%s\\n' {{ password }} | sudo -S -v"
   terminal_wait 0
   settle 4
+# POLKIT IS SILENCED, NOT JUST DISMISSED, AND THAT IS THE FIX FOR THE PANEL THAT EATS THE COMMANDS.
+#
+# MEASURED on five runs: a centred "Authentication Required / To install or remove software, you
+# need to authenticate" panel appears WHILE apt-get runs, takes the keyboard, and every keystroke
+# after it goes into its password box - `Sorry, try that didn't work. Please try again.` and a field
+# full of stars. Escape and the Cancel click only win the race sometimes.
+#
+# The panel is polkit asking for `org.freedesktop.packagekit.package-install`. Writing a rule that
+# answers YES for this local user removes the question, so there is no panel to lose the keyboard to.
+# `auth_admin_keep` would still prompt once; `yes` never does. This is a disposable CI guest whose
+# whole purpose is to be driven by a script, so an unconditional yes for `vmuser` on the install
+# action is the honest configuration - and it is written through `sudo tee`, not typed into a field.
+step "silence polkit so its panel cannot take the keyboard"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; systemctl restart polkit 2>/dev/null; cat /etc/polkit-1/rules.d/49-vm.rules'"
+  settle 5
+
+
 step "kill packagekit, which is what raises the panel"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' pkill -9 packagekitd"
   settle 3
