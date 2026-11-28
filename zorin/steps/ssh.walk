@@ -730,7 +730,18 @@ step "script: say what the daemon is doing"
   settle 2
 
 
-step "script: list the config"
+# THE SCRIPT ASKS sshd ITSELF WHAT IT THINKS THE SETTING IS, SO A SILENT DROP-IN IS VISIBLE.
+#
+# `sshd -T` prints the EFFECTIVE configuration after every Include and every override. If the
+# drop-in is not being read (wrong directory, an override later in the file, a permission check),
+# this line says `passwordauthentication no` and the next reader knows it without guessing. No
+# quotes, no pipe - the same rule as every other line in this file.
+step "script: ask sshd what the password setting is"
+  run "echo sshd -T >> /tmp/s.sh"
+  settle 2
+
+
+step "script: list the config"step "script: list the config"
   run "echo ls /etc/ssh/sshd_config >> /tmp/s.sh"
   settle 2
 
