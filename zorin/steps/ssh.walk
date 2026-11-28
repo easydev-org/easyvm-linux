@@ -191,6 +191,29 @@ step "open the terminal"
 # This is a disposable CI guest driven entirely by a script, so an unconditional yes for this user
 # on that action is the honest configuration - and the rule is written through redirection, never
 # typed into a dialog.
+# THE PANEL IS ALREADY UP WHEN THE TERMINAL OPENS, SO IT IS DISMISSED BEFORE ANYTHING IS TYPED.
+#
+# MEASURED on the probe at 9:43 PM: the terminal shows the polkit rule being typed AND a password
+# dialog is over it with ~25 dots in its field - the rule command's tail went into the dialog. The
+# panel is raised by the desktop's own Software Updater ("Installing updates... Waiting for
+# authentication") and it appears BEFORE the first command, not because of it.
+#
+# Escape and the dialog's Cancel button need NO keyboard focus in the terminal, so they are safe
+# even when the terminal is not the focused window - which is exactly the state a panel leaves.
+step "dismiss the updater panel that is already up"
+  do
+    item
+      input esc
+      settle 2
+    item
+      input 860 700
+      settle 2
+    item
+      input esc
+      settle 2
+  optional true
+
+
 step "stop the updater and silence polkit, so no panel can take the keyboard"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; systemctl disable --now packagekit 2>/dev/null; systemctl mask packagekit 2>/dev/null; echo POLKIT_SILENCED'"
   settle 6
@@ -465,51 +488,25 @@ step "kill packagekit, which is what raises the panel"
 # starts explicitly a few steps below, as its own comment already says).
 
 
+# THE FIRST KEYSTROKES AFTER A RETURN ARE WHAT A BUSY GUEST DAMAGES, SO A THROWAWAY LINE TAKES IT.
+#
+# MEASURED on run 46093405829's recording, with the keyboard otherwise working:
+#
+#	$ settings set org.gnome.desktop.session ...     gsettings lost its `g`
+#	ectest -f etc/ssh/sshd_config                    test gained `ec` AND lost the `/` of /etc
+#
+# Every corrupted line is corrupted AT ITS START, and the line before it had just finished. So the
+# first keystrokes after a Return are what is dropped or doubled. The step below types one harmless
+# command and returns, and the step after it - the one whose text matters - starts on a fresh line
+# whose beginning is not competing with anything.
+step "absorb the line-start damage with a command whose corruption is harmless"
+  run "true"
+  settle 3
+
+
 step "install openssh-server, with no question it could stop at"
-  # THE INSTALL MUST CARRY ITS OWN PASSWORD - AND THE ONE-LINE `printf | sudo -S -v && echo` FORM
-  # WAS NOT SEEDING ANYTHING.
-  #
-  # MEASURED on run 45967850206's recording: at 700 s the prompt reads
-  # `[sudo] password for vmuser: SUDO_UNLOCKED` - the `&& echo` output landed on sudo's own prompt
-  # line, because `printf '%s\\n' pw | sudo -S -v && echo X` runs `echo X` while sudo is still
-  # reading. Every `sudo` after it was unauthenticated, so `apt-get install openssh-server` never
-  # ran: at 740 s `sed: can't read /etc/ssh/sshd_config: No such file or directory`, and
-  # `systemctl restart ssh` answers `Unit ssh.service not found` - openssh was never installed.
-  #
-  # So this carries the password itself, and `apt-get` gets `-y` plus the dpkg options so it cannot
-  # stop on a prompt. The settle is long because the Ubuntu archive is slow on this runner.
-  # THE PASSWORD GOES THROUGH THE PIPE AND APT GETS `/dev/null` - NOT THE OTHER WAY ROUND.
-  #
-  # MEASURED on a real zorin disk, three shapes, each in the recording:
-  #
-  #	a  `printf ... | sudo -S -p '' apt-get install ...`   -> apt inherits the drained pipe; the
-  #	                                                         log was EMPTY and nothing installed
-  #	b  `... apt-get install ... < /tmp/pw`                -> sudo reads /tmp/pw as ITS stdin and
-  #	                                                         answers `sudo: no password was provided`
-  #	c  `printf ... | sudo -S -p '' sh -c 'apt-get ...'`   -> manjaro's PASSING shape
-  #
-  # The two failures are one mistake seen twice: `sudo -S` reads the password FROM STDIN, so the
-  # password pipe and the command's own stdin are the same channel and only one of them can have it.
-  # The passing shape separates them - the pipe carries the password to sudo, and the command runs
-  # inside `sh -c`, which has no reason to read stdin at all.
-  #
-  # `DEBIAN_FRONTEND=noninteractive` stops debconf asking; the log is printed so THIS step fails
-  # visibly rather than three steps later as `Unit ssh.service not found`.
-  # THE RETRY IS IN THE SHELL, NOT IN A SCREEN READ.
-  #
-  # MEASURED across four runs with the typing verified: this step completed and
-  # `/etc/ssh/sshd_config` still did not exist, so apt never finished. The recordings show the FIRST
-  # character of a line occasionally going missing at a line boundary (`gsettings`->`settings`,
-  # `test`->`ectest`); for this line that turns `apt-get` into `pt-get`, and the error lands in the
-  # log where a screenshot cannot see it. A shell loop makes a lost character one more attempt
-  # instead of a stage that fails ten minutes later at `wait for sshd`.
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'for i in 1 2 3; do DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server > /tmp/apt.log 2>&1; [ -f /etc/ssh/sshd_config ] && break; sleep 5; done; tail -6 /tmp/apt.log; ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG'"
   settle 300
-# THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
-#
-# MEASURED ON RUN 44985080074: the stage reached `wait for sshd` and spent its ten minutes on a
-# guest whose `/etc/ssh/sshd_config` had not appeared yet, which is what a package that is still
-# unpacking looks like. A fixed pause is a guess about the network; the file is the fact.
 
 
 step "wait for the package to land its config"
