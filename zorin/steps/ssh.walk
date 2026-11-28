@@ -192,8 +192,8 @@ step "open the terminal"
 # on that action is the honest configuration - and the rule is written through redirection, never
 # typed into a dialog.
 step "stop the updater and silence polkit, so no panel can take the keyboard"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'pkill -9 -f gnome-software; pkill -9 -f packagekitd; systemctl stop packagekit 2>/dev/null; mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; echo POLKIT_SILENCED; cat /etc/polkit-1/rules.d/49-vm.rules'"
-  settle 8
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; systemctl disable --now packagekit 2>/dev/null; systemctl mask packagekit 2>/dev/null; echo POLKIT_SILENCED'"
+  settle 6
 
 
 step "keep the screen on"
