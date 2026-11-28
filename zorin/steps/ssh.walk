@@ -214,9 +214,35 @@ step "dismiss the updater panel that is already up"
   optional true
 
 
-step "stop the updater and silence polkit, so no panel can take the keyboard"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; systemctl disable --now packagekit 2>/dev/null; systemctl mask packagekit 2>/dev/null; echo POLKIT_SILENCED'"
-  settle 6
+
+# A SHELL LEFT MID-QUOTE SWALLOWS EVERY LATER COMMAND, SO EACH COMMAND STARTS FROM A CLEAN PROMPT.
+#
+# MEASURED on the probe at 10:16 PM, in the guest's own words:
+#
+#	tion(action, subject) { ... });" > /etc/polkitsettings set org.gnome.desktop.session ...
+#	> printf '%s\n' admin1 | sudo -S -v
+#	...
+#	bash: syntax error near unexpected token `do'
+#
+# The polkit line lost its tail (`-1/rules.d/49-vm.rules'`), so its `sh -c '` was never CLOSED. Bash
+# answered with `>` - a continuation prompt - and every command after it was appended to that
+# unterminated string instead of running. One lost character therefore voided the rest of the stage.
+#
+# Ctrl+C at a `>` prompt abandons the line and gives back a clean `$`. It costs nothing at a `$`.
+# THE PANEL IS PREVENTED BY REMOVING ITS RAISER, NOT BY WRITING A LONG RULE.
+#
+# A polkit rule needs a long quoted JS line, and MEASURED at 10:16 PM one lost character inside it
+# left the shell at a `>` prompt, which swallowed the whole rest of the stage. The panel's raiser is
+# `packagekitd` (started through dbus by gnome-software), so the raiser is masked with SHORT commands
+# that cannot open a quote, and the panel that is already up was dismissed by the step above.
+step "mask packagekit, which is what raises the panel"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl mask packagekit"
+  settle 3
+
+
+step "prove packagekit cannot be started again"
+  run "systemctl is-active packagekit || echo PACKAGEKIT_GONE"
+  settle 3
 
 
 step "keep the screen on"
@@ -499,13 +525,70 @@ step "kill packagekit, which is what raises the panel"
 # first keystrokes after a Return are what is dropped or doubled. The step below types one harmless
 # command and returns, and the step after it - the one whose text matters - starts on a fresh line
 # whose beginning is not competing with anything.
-step "absorb the line-start damage with a command whose corruption is harmless"
-  run "true"
+# THE INSTALL IS BUILT AS A SCRIPT FROM SHORT LINES, BECAUSE A LONG TYPED LINE LOSES CHARACTERS.
+#
+# MEASURED on probe 12 (10:43 PM), in the guest's own words:
+#
+#	$ xset s off 2>/dev/null; xset -dpms 2>/dev/null; xset s noblank 2>/dev/null; apt-get install ...
+#	                                                                         ^^^^^^
+#	sudo: no password was provided
+#
+# The whole `printf '%s\n' admin1 | sudo -S -p ''` PREFIX was gone from the middle of the line, and
+# earlier a lost `'` left the shell at a `>` continuation prompt that swallowed every later command.
+# So length is the enemy: one dropped character in a long line does not fail that line, it breaks the
+# shell for the rest of the stage.
+#
+# Every line below is SHORT and writes one line of a script. A lost character then damages one line
+# of a file - which the run of the script reports - instead of opening a quote. The script is executed
+# only when it is complete, and its own output (tail of apt's log + the config's existence) is what
+# the next steps read.
+step "start the install script"
+  run "echo '#!/bin/sh' > /tmp/i.sh"
+  settle 2
+
+
+step "script: noninteractive"
+  run "echo 'export DEBIAN_FRONTEND=noninteractive' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: retry loop opening"
+  run "echo 'for i in 1 2 3; do' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: the install"
+  run "echo 'apt-get install -y openssh-server >/tmp/apt.log 2>&1' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: stop when the config exists"
+  run "echo '[ -f /etc/ssh/sshd_config ] && break' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: wait and close the loop"
+  run "echo 'sleep 5; done' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: report what apt said"
+  run "echo 'tail -6 /tmp/apt.log' >> /tmp/i.sh"
+  settle 2
+
+
+step "script: report whether the config exists"
+  run "echo 'ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG' >> /tmp/i.sh"
+  settle 2
+
+
+step "show the script before running it"
+  run "cat /tmp/i.sh"
   settle 3
 
 
-step "install openssh-server, with no question it could stop at"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'for i in 1 2 3; do DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server > /tmp/apt.log 2>&1; [ -f /etc/ssh/sshd_config ] && break; sleep 5; done; tail -6 /tmp/apt.log; ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG'"
+step "run the install script as root"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh /tmp/i.sh"
   settle 300
 
 
@@ -529,6 +612,11 @@ step "wait for the package to land its config"
   # frame shows the file exists with 3517 bytes. A wait is unnecessary; a report is what is useful.
   run "test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK || echo STILL_MISSING"
   settle 3
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
+
+
 step "prove the install produced its unit and config"
   run "test -f /etc/ssh/sshd_config && echo SSHD_CONFIG_OK; systemctl list-unit-files 2>/dev/null | grep -E \"^ssh\" || echo NO_SSH_UNIT"
 
@@ -549,6 +637,11 @@ step "dismiss the authentication panel the install woke up"
 step "stop packagekit again, so it cannot ask again"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl stop packagekit packagekit.service 2>/dev/null; printf '%s\\n' {{ password }} | sudo -S -p '' systemctl mask packagekit 2>/dev/null; systemctl is-active packagekit || echo PACKAGEKIT_STOPPED"
   settle 8
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
+
+
 step "allow password authentication"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config ; printf '%s\\n' {{ password }} | sudo -S -p '' grep -i \"^PasswordAuthentication\" /etc/ssh/sshd_config"
   settle 3
@@ -665,9 +758,19 @@ step "enable and start ssh in one request"
 # manjaro - which passes - has this step (`/usr/bin/ssh-keygen -A` in a `run:`) and zorin had none.
 # The key is generated here, before anything starts the daemon, and the step prints whether the key
 # landed so the next run names this layer instead of reporting `inactive`.
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
+
+
 step "make the host keys, or sshd exits the moment it starts"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh; /usr/bin/ssh-keygen -A; ls /etc/ssh/ssh_host_ed25519_key >/dev/null 2>&1 && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
   settle 4
+
+
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
 
 
 step "start ssh, with the socket, showing what systemctl says"
@@ -676,9 +779,19 @@ step "start ssh, with the socket, showing what systemctl says"
   settle 3
 
 
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
+
+
 step "start ssh itself"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh; systemctl is-active ssh"
   settle 5
+
+
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
 
 
 step "take the firewall down"
@@ -696,6 +809,11 @@ step "take the firewall down"
 # SO EACH READ IS PRECEDED BY A CLEAR: Escape returns focus to the terminal if the modal is up, and
 # Enter answers nothing. A modally-blocked screen answers "" - which is the empty string this step
 # reported - and the loop keeps going rather than failing on the first blank frame.
+step "reset the shell, in case a quote is still open"
+  input ctrl+c
+  settle 2
+
+
 step "resend the enable if the word never came, with the modal gone"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket 2>/dev/null; printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh 2>/dev/null; printf '%s\\n' {{ password }} | sudo -S -p '' ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
   settle 8
