@@ -678,7 +678,24 @@ step "script: create /etc/ssh"
   settle 2
 
 
-step "script: create the host keys"
+# PASSWORD AUTH IS PUT IN A DROP-IN, AND THE LINE HAS NO QUOTES.
+#
+# MEASURED on run 32143f6's probe: sshd answered `SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.2` on 2222,
+# so the daemon was up and reachable - and `machine_ssh` still said false, which is an
+# AUTHENTICATION failure, not a listener one. This image's sshd_config does not ship
+# `PasswordAuthentication yes`, and the sed that used to set it was removed when the script had to
+# become quote-free. A drop-in file with one word per line needs no quoting at all.
+step "script: create the drop-in directory"
+  run "echo mkdir -p /etc/ssh/sshd_config.d >> /tmp/s.sh"
+  settle 2
+
+
+step "script: write the password-auth drop-in"
+  run "echo echo PasswordAuthentication yes > /etc/ssh/sshd_config.d/99-vm.conf >> /tmp/s.sh"
+  settle 2
+
+
+step "script: create the host keys"step "script: create the host keys"
   run "echo ssh-keygen -A >> /tmp/s.sh"
   settle 2
 
@@ -688,7 +705,12 @@ step "script: start the socket"
   settle 2
 
 
-step "script: start ssh itself"
+step "script: make the drop-in take effect"
+  run "echo systemctl restart ssh >> /tmp/s.sh"
+  settle 2
+
+
+step "script: start ssh itself"step "script: start ssh itself"
   run "echo systemctl start ssh >> /tmp/s.sh"
   settle 2
 
@@ -723,7 +745,23 @@ step "run the ssh script as root"
   settle 25
 
 
-step "wait for sshd"
+# ASK THE GUEST, OUT LOUD, BEFORE WAITING - SO A FAILURE NAMES ITSELF IN THE LOG.
+#
+# `wait for sshd` only says ssh_ready=false, and that sentence cannot distinguish "the daemon is not
+# running" from "it runs but nothing listens" from "it listens and the host probe cannot reach it".
+# This step types one short line and lets the guest answer; its output is in the recording and in
+# the run's command evidence, which is what the next diagnosis needs.
+step "ask the guest whether sshd is up, in words the log keeps"
+  run "systemctl is-active ssh"
+  settle 3
+
+
+step "ask the guest whether anything is listening"
+  run "ss -lnt"
+  settle 3
+
+
+step "wait for sshd"step "wait for sshd"
   repeat
     until machine_ssh
     max 90
