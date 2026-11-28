@@ -73,6 +73,8 @@ jobs:
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-ubuntu-ssh.qcow2",
             "publish": "linux-ubuntu-ssh",
+            "seed": "true",
+            "seed-family": "apt",
             "timeout": 60
           }
         ]

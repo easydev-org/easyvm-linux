@@ -5,6 +5,12 @@ var out
   default out/distro.qcow2
   from args.out
 password admin1
+# `user vmuser` IS THE HEADER KEY THE SSH CLIENT READS - `var user` IS NOT.
+#
+# MEASURED: `ssh_user:` is parsed from a top-level `user` line and defaults to `vmuser`; a
+# `var user` only changes what gets TYPED on a console. Since this stage types nothing, the
+# header value is the one that matters - but writing it makes the file say who it logs in as.
+user vmuser
 var user
   default vmuser
   from args.user
@@ -16,111 +22,19 @@ step "boot the disk"
     machine "q35,accel=kvm,vmport=off"
     args [["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
     timeout 900
-step "wait for the greeter's X server to settle on the mode it was given"
-  repeat
-    do
-      item
-        settle 5
-      item "read the screen"
-        read
-          name greeter
-    until
-      bind settled
-      source greeter
-      mode text
-      rect [768, 641, 1062, 755]
-      rect_at [1920, 1080]
-      words [[password], [log], [complete, your, setup], [welcome, to, ubuntu]]
-    max 24
-
-
-step "greeter - the password box"
-  input 936 628
-  settle 3
-
-
-step "greeter - log in"
-  settle 3
-  input text "{{ password }}"
-
-
-step "greeter - submit"
-  input ret
-  settle 12
-
-
-step "the first-login wizard is up, when this build shows one"
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name screen
-    until
-      bind done
-      source screen
-      mode text
-      rect [768, 641, 1062, 755]
-      rect_at [1920, 1080]
-      words [[welcome, to, ubuntu], [complete, your, setup]]
-    max 30
-
-
-step "walk the first-login pages to the end"
-  repeat
-    do
-      item
-        input 1464 194
-      item
-        settle 4
-      item "read the screen"
-        read
-          name page
-    until
-      bind done
-      source page
-      mode text
-      without [continue, next, skip, pro, install]
-      rect [0, 0, 1920, 1080]
-      rect_at [1920, 1080]
-      scale 1
-    max 12
-
-
-step "open the terminal"
-  input ctrl+alt+t
-  settle 20
-
-
-step "keep the screen on"
-  run "xset s off; xset -dpms; xset s noblank"
-  settle 3
-
-
-step "sudo is unlocked for this session"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
-  settle 2
-
-
-step "install openssh-server"
-  run "sudo apt-get install -y openssh-server"
-  settle 5
-
-
-step "allow password authentication"
-  run "sudo sed -i s/^#PasswordAuthentication.*/PasswordAuthentication\\ yes/ /etc/ssh/sshd_config && grep -i ^PasswordAuthentication /etc/ssh/sshd_config"
-  settle 3
-
-
-step "enable ssh at boot"
-  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
-  settle 5
-
-
-step "prove ssh is active"
-  run "systemctl is-active ssh"
-  settle 3
+# THERE IS NO LOGIN, NO TERMINAL AND NO install HERE, AND THAT IS THE WHOLE POINT.
+#
+# This stage used to type its way through a greeter, a first-login wizard and eight commands in a
+# terminal, and MEASURED over ten runs of its sibling zorin the virtual keyboard drops and doubles
+# characters at line boundaries - one lost `'` leaves bash at a `>` prompt that swallows every
+# later command, so `wait for sshd` ran against a machine whose install had never executed.
+#
+# The disk this leg pulls has had an ssh server put into it BEFORE its first boot, by
+# `scripts/seed-ssh.sh` (see the `seed` row in the workflow). So the only work left is to boot it
+# and to check that the promise holds: a session, a kernel, an account. Not one keystroke.
+#
+# MEASURED on a real ubuntu disk: the seeded image reached `ssh_ready="true"` on its own, and
+# `ssh "uname -a"` answered `Linux vmuser-Standard-PC-Q35-ICH9-2009 7.0.0-44-generic ... x86_64`.
 
 
 step "wait for sshd"
