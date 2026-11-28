@@ -476,7 +476,15 @@ step "install openssh-server, with no question it could stop at"
   #
   # `DEBIAN_FRONTEND=noninteractive` stops debconf asking; the log is printed so THIS step fails
   # visibly rather than three steps later as `Unit ssh.service not found`.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server > /tmp/apt.log 2>&1; tail -6 /tmp/apt.log; ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG'"
+  # THE RETRY IS IN THE SHELL, NOT IN A SCREEN READ.
+  #
+  # MEASURED across four runs with the typing verified: this step completed and
+  # `/etc/ssh/sshd_config` still did not exist, so apt never finished. The recordings show the FIRST
+  # character of a line occasionally going missing at a line boundary (`gsettings`->`settings`,
+  # `test`->`ectest`); for this line that turns `apt-get` into `pt-get`, and the error lands in the
+  # log where a screenshot cannot see it. A shell loop makes a lost character one more attempt
+  # instead of a stage that fails ten minutes later at `wait for sshd`.
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'for i in 1 2 3; do DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server > /tmp/apt.log 2>&1; [ -f /etc/ssh/sshd_config ] && break; sleep 5; done; tail -6 /tmp/apt.log; ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG'"
   settle 300
 # THE INSTALL IS WAITED FOR, NOT ASSUMED - `apt-get` IS SLOW AND THE 90 s `settle` IS A GUESS.
 #
