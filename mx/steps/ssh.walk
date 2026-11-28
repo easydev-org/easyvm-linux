@@ -32,10 +32,17 @@ step "boot the disk"
     timeout 900
 
 
+# A FRESHLY SEEDED DISK PAYS FIRST-BOOT WORK BEFORE ssh.socket ANSWERS.
+#
+# MEASURED on two images in the same batch (mx, zorin): the loop ran all 60 attempts on
+# `ssh probe: i/o timeout`, and the host diagnosis taken at the moment it gave up showed the
+# port OPEN and answering `SSH-2.0-OpenSSH...`. So the daemon was late, not absent. The 60
+# attempts were measured against an already-installed disk; a seeded one is slower, and the
+# budget is what changes here - the mechanism is the same.
 step "wait for sshd"
   repeat
     until machine_ssh
-    max 60
+    max 150
     pause 10
 
 
