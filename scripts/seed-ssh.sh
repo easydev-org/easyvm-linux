@@ -225,31 +225,59 @@ SEARCH = ["/usr/bin", "/usr/sbin", "/bin", "/sbin",
 def listing(path):
     r = subprocess.run(["debugfs", "-R", "ls -l " + path, dev],
                        capture_output=True, text=True, errors="replace")
-    return r.stdout
+    return r.stdout.splitlines()
 
-fixed = new_mode = 0
-mode_by_path = {}
-for root in SEARCH:
-    if not os.path.isdir(tree + root):
-        continue
-    for line in listing(root).splitlines():
+
+# THE WALK IS RECURSIVE, AND THAT IS THE WHOLE POINT.
+#
+# `debugfs -R "ls -l /usr/lib"` lists the entries of THAT ONE DIRECTORY and nothing below it. The
+# first version of this script assumed every privileged binary sat directly under one of the
+# search roots, and MEASURED on Ubuntu 26.04 that is false:
+#
+#	/usr/bin/sudo -> /etc/alternatives/sudo -> /usr/lib/cargo/bin/sudo
+#
+# `sudo-rs`, this release's default, is THREE levels down. Its setuid bit was therefore never
+# restored, `sudo` resolved through two symlinks to a 0755 file, and every privileged command in
+# the guest answered
+#
+#	sudo: sudo must be owned by uid 0 and have the setuid bit set
+#
+# while an unprivileged `uname -a` still worked - which is why the stage passed three steps first.
+def walk(path, depth=0):
+    if depth > 6:
+        return {}
+    found = {}
+    for line in listing(path):
         m = LINE.match(line)
         if not m:
             continue
-        mode, name = int(m.group(2), 8), m.group(3).strip()
-        if name in (".", "..") or not name:
+        try:
+            mode = int(m.group(2), 8)
+        except ValueError:
             continue
-        # `ls -l` in debugfs prints the size and date, and a name with spaces would have been
-        # split; privileged binaries do not have spaces, so a name containing one is skipped
-        if " " in name:
+        name = m.group(3).strip()
+        if name in (".", "..") or not name or " " in name:
             continue
-        mode_by_path[root.rstrip("/") + "/" + name] = mode & 0o7777
+        full = path.rstrip("/") + "/" + name
+        if mode & 0o170000 == 0o040000:          # S_IFDIR
+            found.update(walk(full, depth + 1))
+        else:
+            found[full] = mode & 0o7777
+    return found
 
+
+ROOTS = ["/usr/bin", "/usr/sbin", "/bin", "/sbin", "/usr/lib", "/usr/libexec",
+         "/usr/lib64", "/usr/local/bin", "/usr/local/sbin", "/opt"]
+
+mode_by_path = {}
+for root in ROOTS:
+    if os.path.isdir(tree + root):
+        mode_by_path.update(walk(root))
+
+fixed = new_mode = 0
 for path, want in mode_by_path.items():
     target = tree + path
-    if not os.path.lexists(target):
-        continue
-    if os.path.islink(target):
+    if not os.path.lexists(target) or os.path.islink(target):
         continue
     try:
         cur = os.stat(target).st_mode & 0o7777
@@ -263,9 +291,25 @@ for path, want in mode_by_path.items():
                 new_mode += 1
         except OSError:
             pass
-print("chmod: %d entries restored, %d of them setuid/setgid" % (fixed, new_mode))
-if new_mode == 0:
-    raise SystemExit("no setuid bit was restored - the open/sudo path would fail in the guest")
+
+print("chmod: %d of %d entries corrected, %d with setuid/setgid"
+      % (fixed, len(mode_by_path), new_mode))
+
+# THE PATH THIS EXISTS FOR, NAMED SO A REGRESSION IS LOUD RATHER THAN A GUEST THAT CANNOT sudo.
+checked = 0
+for probe in ("/usr/bin/sudo.ws", "/usr/lib/cargo/bin/sudo", "/usr/bin/su", "/usr/bin/passwd",
+              "/usr/bin/mount", "/usr/bin/pkexec"):
+    t = tree + probe
+    if not os.path.lexists(t):
+        continue
+    checked += 1
+    st = os.stat(t)
+    if not (st.st_mode & 0o4000):
+        raise SystemExit("%s is not setuid after the restore (%o) - sudo in the guest would fail"
+                         % (probe, st.st_mode & 0o7777))
+if checked == 0:
+    raise SystemExit("none of the expected privileged binaries exists in the tree")
+print("setuid: %d privileged binaries verified" % checked)
 PY
 
 log "device nodes rebuilt"
