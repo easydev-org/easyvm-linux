@@ -28,6 +28,13 @@ on:
         description: >-
           the PUBLISHED disk this stage continues from (default linux-ubuntu)
         default: "linux-ubuntu"
+      python_stage:
+        description: >-
+          true runs the PYTHON walkthrough (`stage-python.yml`); false runs the old `.walk` through
+          `stage.yml`. It is an input rather than a replacement so the two can be measured against
+          the same disk in the same week - see docs/V0.0.5-DESIGN.md.
+        type: boolean
+        default: true
 
 concurrency:
   group: ubuntu-ssh
@@ -39,7 +46,43 @@ permissions:
   checks: write
 
 jobs:
-  ssh:
+  # = THE PYTHON PATH ==================================================================
+  #
+  # TWO CONTAINERS: the daemon (easyvm, with /dev/kvm) and the steps (easyvm-client, python). The
+  # walkthrough is `ubuntu/steps/ssh.py`, and the arrangement is the one probe-two-containers
+  # measured - see the comment at the top of stage-python.yml.
+  ssh-python:
+    if: inputs.python_stage
+    uses: easydev-org/easyvm/.github/workflows/stage-python.yml@v0.0.5-rc
+    secrets: inherit
+    with:
+      daemon_image_tag: v0.0.5-rc
+      client_image_tag: v0.0.5
+      group: ubuntu-ssh
+      disks_repository: ${{ inputs.disks_repository }}
+      user: vmuser
+      password: admin1
+      stages: |
+        [
+          {
+            "name": "linux-ubuntu-ssh",
+            "script": "ubuntu/steps/ssh.py",
+            "pull": "${{ inputs.from_tag }}",
+            "out": "linux-ubuntu-ssh.qcow2",
+            "publish": "linux-ubuntu-ssh",
+            "seed": "true",
+            "seed-family": "apt",
+            "timeout": 60
+          }
+        ]
+
+  # = THE OLD PATH, KEPT UNTIL THE PYTHON ONE HAS A GREEN RUN ============================
+  #
+  # The `.walk` file and `stage.yml` still work; deleting them is the LAST step of v0.0.5, not the
+  # first. A caller that turns `python_stage` off measures the same disk through the old engine, which
+  # is how a difference between the two is told apart from a difference in the disk.
+  ssh-walk:
+    if: ${{ !inputs.python_stage }}
     uses: easydev-org/easyvm/.github/workflows/stage.yml@v0.0.4
     secrets: inherit
     with:

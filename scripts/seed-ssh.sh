@@ -668,6 +668,32 @@ if [ -f "$TREE/usr/lib/systemd/system/ssh.socket" ] || [ -f "$TREE/lib/systemd/s
     mkdir -p "$TREE/etc/systemd/system/sockets.target.wants"
     ln -sf /usr/lib/systemd/system/ssh.socket \
         "$TREE/etc/systemd/system/sockets.target.wants/ssh.socket" 2>/dev/null || true
+
+    # THE SOCKET IS PULLED EARLIER THAN THE DESKTOP'S OWN STARTUP.
+    #
+    # MEASURED on zorin and mx (runs 46154783220 / 46154775360): `wait for sshd` ran its whole
+    # window on `ssh probe: i/o timeout` and the host diagnosis, taken when it gave up, showed
+    # the port OPEN and answering `SSH-2.0-OpenSSH...`. The daemon started, but late - after
+    # snapd's first-boot work, gdm and packagekit, all of which a seeded disk pays at once.
+    #
+    # A drop-in that says "start me as soon as the loopback and the network device exist" moves
+    # only the ORDER, not the work: the socket is a listener, so it costs nothing to have it up
+    # while the desktop is still assembling, and it is the one service the next stage needs.
+    SOCKET_UNIT=ssh.socket
+    for d in "$TREE/usr/lib/systemd/system" "$TREE/lib/systemd/system"; do
+        if [ -f "$d/ssh.socket" ]; then SOCKET_UNIT=ssh.socket; break; fi
+        if [ -f "$d/sshd.socket" ]; then SOCKET_UNIT=sshd.socket; break; fi
+    done
+    mkdir -p "$TREE/etc/systemd/system/$SOCKET_UNIT.d"
+    cat > "$TREE/etc/systemd/system/$SOCKET_UNIT.d/10-easyvm-early.conf" <<'DROPIN'
+[Unit]
+# The listener is ready before the desktop is, so the stage that waits on it does not spend its
+# budget on snapd and gdm. `DefaultDependencies=no` is NOT used: the socket still wants the
+# address it binds to, and ordering it before network-online would be worse than late.
+After=local-fs.target
+Wants=local-fs.target
+DROPIN
+    log "  $SOCKET_UNIT has a drop-in that starts it as soon as the filesystem is up"
 fi
 for unit in ssh.service sshd.service; do
     for d in "$TREE/usr/lib/systemd/system" "$TREE/lib/systemd/system"; do
