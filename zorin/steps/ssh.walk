@@ -177,6 +177,25 @@ step "open the terminal"
 # typed - the measurement is cachyos's, which failed exactly this way on run 44933304315.
 
 
+# THE UPDATER ITSELF IS WHAT ASKS, SO THE UPDATER IS WHAT IS STOPPED - AND THE ASKING IS DISABLED.
+#
+# MEASURED on six runs: a centred "Authentication Required / To install or remove software, you
+# need to authenticate" panel takes the keyboard WHILE this stage types, and every later keystroke
+# lands in its password box. Dismissing it (escape, then its Cancel button) wins the race only
+# sometimes, because `gnome-software`/`packagekitd` raise it again seconds later - the panel is a
+# REQUEST from a running daemon, not a one-off.
+#
+# So both halves are done here, BEFORE anything is installed:
+#   the daemons are killed and masked, so nothing is left to ask;
+#   a polkit rule answers YES for `vmuser` on package installs, so even a straggler cannot prompt.
+# This is a disposable CI guest driven entirely by a script, so an unconditional yes for this user
+# on that action is the honest configuration - and the rule is written through redirection, never
+# typed into a dialog.
+step "stop the updater and silence polkit, so no panel can take the keyboard"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'pkill -9 -f gnome-software; pkill -9 -f packagekitd; systemctl stop packagekit 2>/dev/null; mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; echo POLKIT_SILENCED; cat /etc/polkit-1/rules.d/49-vm.rules'"
+  settle 8
+
+
 step "keep the screen on"
   run "xset s off; xset -dpms; xset s noblank"
   settle 5
@@ -314,25 +333,6 @@ step "keep the screen on - screensaver"
 step "keep the screen on - xset"
   run "xset s off 2>/dev/null; xset -dpms 2>/dev/null; xset s noblank 2>/dev/null; echo SCREEN_3"
   settle 2
-
-# THE UPDATER ITSELF IS WHAT ASKS, SO THE UPDATER IS WHAT IS STOPPED - AND THE ASKING IS DISABLED.
-#
-# MEASURED on six runs: a centred "Authentication Required / To install or remove software, you
-# need to authenticate" panel takes the keyboard WHILE this stage types, and every later keystroke
-# lands in its password box. Dismissing it (escape, then its Cancel button) wins the race only
-# sometimes, because `gnome-software`/`packagekitd` raise it again seconds later - the panel is a
-# REQUEST from a running daemon, not a one-off.
-#
-# So both halves are done here, BEFORE anything is installed:
-#   the daemons are killed and masked, so nothing is left to ask;
-#   a polkit rule answers YES for `vmuser` on package installs, so even a straggler cannot prompt.
-# This is a disposable CI guest driven entirely by a script, so an unconditional yes for this user
-# on that action is the honest configuration - and the rule is written through redirection, never
-# typed into a dialog.
-step "stop the updater and silence polkit, so no panel can take the keyboard"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'pkill -9 -f gnome-software; pkill -9 -f packagekitd; systemctl stop packagekit 2>/dev/null; mkdir -p /etc/polkit-1/rules.d; printf "%%s\\n" "polkit.addRule(function(action, subject) { if (subject.user == \"vmuser\") { return polkit.Result.YES; } });" > /etc/polkit-1/rules.d/49-vm.rules; systemctl restart polkit 2>/dev/null; echo POLKIT_SILENCED; cat /etc/polkit-1/rules.d/49-vm.rules'"
-  settle 8
-
 
 step "unlock sudo once for this session"
   # `printf '%s\\n'` IS THE FORM THAT WORKS - A PIPE WITH `echo` DOES NOT END THE PASSWORD.
