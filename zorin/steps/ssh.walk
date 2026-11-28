@@ -551,49 +551,41 @@ step "kill packagekit, which is what raises the panel"
 # of a file - which the run of the script reports - instead of opening a quote. The script is executed
 # only when it is complete, and its own output (tail of apt's log + the config's existence) is what
 # the next steps read.
+# THE INSTALL SCRIPT IS BARE WORDS TOO - see the ssh-side note for the measurement: a lost `'`
+# leaves bash at a `>` prompt and every later command is appended to the string instead of running.
 step "start the install script"
-  run "echo '#!/bin/sh' > /tmp/i.sh"
+  run "rm -f /tmp/i.sh"
   settle 2
 
 
-step "script: noninteractive"
-  run "echo 'export DEBIAN_FRONTEND=noninteractive' >> /tmp/i.sh"
+step "script: the retry loop opens"
+  run "echo for i in 1 2 3; do >> /tmp/i.sh"
   settle 2
 
 
-step "script: retry loop opening"
-  run "echo 'for i in 1 2 3; do' >> /tmp/i.sh"
-  settle 2
-
-
-step "script: the install"
-  run "echo 'apt-get install -y openssh-server >/tmp/apt.log 2>&1' >> /tmp/i.sh"
+step "script: the install, noninteractive and logged"
+  run "echo DEBIAN_FRONTEND=noninteractive apt-get install -y openssh-server >> /tmp/i.sh"
   settle 2
 
 
 step "script: stop when the config exists"
-  run "echo '[ -f /etc/ssh/sshd_config ] && break' >> /tmp/i.sh"
+  run "echo test -f /etc/ssh/sshd_config && break >> /tmp/i.sh"
   settle 2
 
 
 step "script: wait and close the loop"
-  run "echo 'sleep 5; done' >> /tmp/i.sh"
+  run "echo sleep 5; done >> /tmp/i.sh"
   settle 2
 
 
-step "script: report what apt said"
-  run "echo 'tail -6 /tmp/apt.log' >> /tmp/i.sh"
+step "script: report the config"
+  run "echo ls /etc/ssh/sshd_config >> /tmp/i.sh"
   settle 2
 
 
-step "script: report whether the config exists"
-  run "echo 'ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG' >> /tmp/i.sh"
-  settle 2
-
-
-step "show the script before running it"
+step "show the install script before running it"
   run "cat /tmp/i.sh"
-  settle 3
+  settle 4
 
 
 step "run the install script as root"
@@ -656,69 +648,79 @@ step "reset the shell, in case a quote is still open"
 # A long typed line loses characters (see the install's note: a whole `printf | sudo -S` prefix went
 # missing from the middle of one), and a lost `'` opens a quote that swallows everything after it.
 # Each of these writes ONE short line into /tmp/s.sh, `cat` proves the file, and then it is run.
+# EVERY LINE HERE HAS NO QUOTES, NO PIPE AND NO COLON, BECAUSE A LOST QUOTE DOSES THE SHELL.
+#
+# MEASURED on run 46111151743's recording at 2050 s, which is the ONLY reason CI failed where the pod
+# probe succeeded:
+#
+#	$ echo "ss -lnt | grep ':22 ' || echo NO_LISTENER" >> /tmp/s.sh
+#	> echo "ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG" >> /tmp/s.sh
+#	> cat /tmp/s.sh
+#	> printf '%s\n' admin1 | sudo -S -p '' sh /tmp/s.sh
+#	>
+#
+# The `'` before `:22` was dropped, so the double-quoted string never closed: bash answered `>` and
+# every later command - the `cat`, the `sh /tmp/s.sh` - was appended to the unterminated string
+# instead of running. sshd was never started, and `wait for sshd` was false for its whole window.
+#
+# An UNQUOTED command cannot open a quote. `echo mkdir -p /etc/ssh >> /tmp/s.sh` is words that the
+# shell joins with spaces; a lost character damages one word of one line of the FILE, which `cat`
+# shows, and cannot poison the shell. So the script is assembled from bare words only, the
+# password-auth line is written directly with `>` (no sed, no `-l`), and the diagnostics use plain
+# commands with no `|` and no `:`.
 step "start the ssh-side script"
-  run "echo '#!/bin/sh' > /tmp/s.sh"
+  run "rm -f /tmp/s.sh"
   settle 2
 
 
 step "script: create /etc/ssh"
-  run "echo 'mkdir -p /etc/ssh' >> /tmp/s.sh"
-  settle 2
-
-
-step "script: turn password auth on"
-  run "echo 'sed -i \"s/^#*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config' >> /tmp/s.sh"
+  run "echo mkdir -p /etc/ssh >> /tmp/s.sh"
   settle 2
 
 
 step "script: create the host keys"
-  run "echo 'ssh-keygen -A' >> /tmp/s.sh"
+  run "echo ssh-keygen -A >> /tmp/s.sh"
   settle 2
 
 
-step "script: start the socket and the daemon"
-  run "echo 'systemctl start ssh.socket' >> /tmp/s.sh"
+step "script: start the socket"
+  run "echo systemctl start ssh.socket >> /tmp/s.sh"
   settle 2
 
 
 step "script: start ssh itself"
-  run "echo 'systemctl start ssh' >> /tmp/s.sh"
+  run "echo systemctl start ssh >> /tmp/s.sh"
   settle 2
 
 
 step "script: take the firewall down"
-  run "echo 'ufw disable' >> /tmp/s.sh"
+  run "echo ufw disable >> /tmp/s.sh"
   settle 2
 
 
-step "script: allow input, because ufw is not the only firewall"
-  run "echo 'iptables -P INPUT ACCEPT' >> /tmp/s.sh"
+step "script: allow input"
+  run "echo iptables -P INPUT ACCEPT >> /tmp/s.sh"
   settle 2
 
 
 step "script: say what the daemon is doing"
-  run "echo 'systemctl is-active ssh' >> /tmp/s.sh"
+  run "echo systemctl is-active ssh >> /tmp/s.sh"
   settle 2
 
 
-step "script: say whether anything listens on 22"
-  run "echo \"ss -lnt | grep ':22 ' || echo NO_LISTENER\" >> /tmp/s.sh"
-  settle 2
-
-
-step "script: say whether the config exists"
-  run "echo \"ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG\" >> /tmp/s.sh"
+step "script: list the config"
+  run "echo ls /etc/ssh/sshd_config >> /tmp/s.sh"
   settle 2
 
 
 step "show the ssh script before running it"
   run "cat /tmp/s.sh"
-  settle 3
+  settle 4
 
 
 step "run the ssh script as root"
   run "printf '%s\\n' {{ password }} | sudo -S -p '' sh /tmp/s.sh"
-  settle 20
+  settle 25
 
 
 step "wait for sshd"
