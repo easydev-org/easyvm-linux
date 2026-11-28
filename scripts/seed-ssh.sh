@@ -71,19 +71,22 @@ qemu-img convert -f qcow2 -O raw "$DISK" "$BASE"
 # p1 and the root on p2, Android puts system on p2 behind a BIOS-boot p1, and a distro that
 # grows /home would move it again. "Which partition holds ext4" is the only question with one
 # answer across all of them.
-read -r DISK_BYTES ROOT_FIRST ROOT_LAST PART_TYPE <<EOF
-$(python3 - "$BASE" <<'PY'
-import struct, subprocess, sys
+layout=$(python3 - "$BASE" <<'PY'
+import os
+import struct
+import subprocess
+import sys
 
 raw = sys.argv[1]
 SECTOR = 512
+# The standard Linux filesystem data GUID, in the byte order the GPT stores it.
 LINUX_FS = bytes.fromhex("af3dc60f838472478e793d69d8477de4")
 
 
 def read(off, n):
     r = subprocess.run(["qemu-io", "-f", "raw", "-r", "-c",
                         "read -v %d %d" % (off, n), raw],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, errors="replace")
     out = bytearray()
     hexd = set("0123456789abcdef")
     for line in r.stdout.splitlines():
@@ -99,31 +102,74 @@ def read(off, n):
     return bytes(out)
 
 
-import os
 size = os.path.getsize(raw)
 hdr = read(SECTOR, 92)
 if hdr[0:8] != b"EFI PART":
-    sys.exit("no GPT at LBA 1")
+    # A DOS/MBR table is a real possibility here and it must not read as "no root".
+    print("ERR no GPT at LBA 1; first 16 bytes are %s" % hdr[0:16].hex())
+    raise SystemExit(1)
 lba, count, esize = struct.unpack("<QII", hdr[72:88])
 table = read(lba * SECTOR, count * esize)
-best = None
+
+parts = []
 for i in range(count):
     e = table[i * esize:(i + 1) * esize]
     if e[0:16] == b"\x00" * 16:
         continue
     first, last = struct.unpack("<QQ", e[32:48])
-    if e[0:16] == LINUX_FS and (best is None or (last - first) > (best[1] - best[0])):
-        best = (first, last)
-if best is None:
-    sys.exit("no Linux filesystem partition in the GPT")
-print(size, best[0], best[1], "ext4")
+    parts.append((i + 1, first, last, e[0:16]))
+
+
+def is_ext4(first_byte):
+    """(offset+1024)+0x38 holds the ext2/3/4 magic 0x53EF."""
+    sb = read(first_byte + 1024 + 0x38, 2)
+    return len(sb) == 2 and struct.unpack("<H", sb)[0] == 0xEF53
+
+
+# THE ROOT IS FOUND BY ITS FILESYSTEM, NOT BY ITS PARTITION-TYPE GUID.
+#
+# MEASURED on the first seeded batch: ubuntu, kubuntu, popos and endeavour answered to the
+# Linux-filesystem GUID and passed; cachyos and mint did not, and their `read` produced nothing,
+# so `DISK_BYTES` came out 0 and the log said `disk 0 MiB, root sectors ..`. A Calamares
+# install and an Ubiquity install do not have to agree on the GUID, and neither is wrong - the
+# thing this script actually needs is "the partition that holds ext4".
+#
+# So the candidates are the partitions that ARE ext4, and the largest of them is the root. The
+# GUID is still reported, so a disk where no partition is ext4 says which types it had.
+found = []
+for idx, first, last, typ in parts:
+    if is_ext4(first * SECTOR):
+        found.append((idx, first, last, typ))
+
+if not found:
+    kinds = ", ".join("p%d:%s" % (i, t.hex()[:8]) for i, _, _, t in parts)
+    print("ERR no ext4 partition among %d: %s" % (len(parts), kinds))
+    raise SystemExit(1)
+
+idx, first, last, typ = max(found, key=lambda t: t[2] - t[1])
+note = "linux-fs" if typ == LINUX_FS else "type %s (not the Linux-fs GUID)" % typ.hex()[:8]
+print(size, first, last, "ext4 p%d %s" % (idx, note))
 PY
 )
+
+case "$layout" in
+ERR\ *)
+    log "  cannot find the root filesystem: ${layout#ERR }"
+    exit 1
+    ;;
+"")
+    log "  the partition reader produced nothing"
+    exit 1
+    ;;
+esac
+
+read -r DISK_BYTES ROOT_FIRST ROOT_LAST PART_TYPE REST <<EOF
+$layout
 EOF
 
 START_BYTE=$((ROOT_FIRST * 512))
 PART_BYTES=$(((ROOT_LAST - ROOT_FIRST + 1) * 512))
-log "disk $((DISK_BYTES / 1048576)) MiB, root sectors $ROOT_FIRST..$ROOT_LAST ($((PART_BYTES / 1048576)) MiB)"
+log "disk $((DISK_BYTES / 1048576)) MiB, root sectors $ROOT_FIRST..$ROOT_LAST ($((PART_BYTES / 1048576)) MiB, $PART_TYPE)"
 
 # ------------------------------------------------------------------ the uuid
 #
