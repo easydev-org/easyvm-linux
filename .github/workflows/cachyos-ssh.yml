@@ -76,7 +76,9 @@ jobs:
             "file": "cachyos/steps/ssh.walk",
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-cachyos-ssh.qcow2",
-            "publish": "linux-cachyos-ssh",
+            "publish": "linux-cachyos-ssh",            "seed": "true",
+            "seed-family": "pacman",
+
             "timeout": 60
           }
         ]

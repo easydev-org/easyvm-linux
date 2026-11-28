@@ -77,6 +77,9 @@ jobs:
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-manjaro-ssh.qcow2",
             "timeout": 60,
-            "publish": "linux-manjaro-ssh"
+            "publish": "linux-manjaro-ssh",
+            "seed": "true",
+            "seed-family": "pacman"
+
           }
         ]

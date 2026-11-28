@@ -77,6 +77,9 @@ jobs:
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-endeavour-ssh.qcow2",
             "timeout": 60,
-            "publish": "linux-endeavour-ssh"
+            "publish": "linux-endeavour-ssh",
+            "seed": "true",
+            "seed-family": "pacman"
+
           }
         ]

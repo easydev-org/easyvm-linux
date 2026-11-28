@@ -76,7 +76,9 @@ jobs:
             "file": "kubuntu/steps/ssh.walk",
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-kubuntu-ssh.qcow2",
-            "publish": "linux-kubuntu-ssh",
+            "publish": "linux-kubuntu-ssh",            "seed": "true",
+            "seed-family": "apt",
+
             "timeout": 60
           }
         ]

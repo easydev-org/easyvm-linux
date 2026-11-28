@@ -9,6 +9,23 @@ var ssh_user vmuser
 var user
   default vmuser
   from args.user
+
+
+# THERE IS NO LOGIN, NO TERMINAL AND NO install HERE, AND THAT IS THE POINT.
+#
+# This stage used to type its way through a greeter and a dozen commands in a terminal, and
+# MEASURED over ten runs of its sibling zorin the virtual keyboard drops and doubles characters
+# at line boundaries - one lost `'` leaves bash at a `>` prompt that swallows every later
+# command, so `wait for sshd` ran against a machine whose install had never executed.
+#
+# The disk this leg pulls has had an ssh server put into it BEFORE its first boot, by
+# `scripts/seed-ssh.sh` (see the `seed` row in the workflow), together with the offline half of
+# vm-configure: hostname, time zone, locale, automatic login and the screen-lock settings.
+#
+# So the only work left is to boot it and to check that the promise holds: a session, a kernel,
+# an account. Not one keystroke.
+
+
 step "boot the disk"
   boot
     machine "q35,accel=kvm,vmport=off"
@@ -32,234 +49,6 @@ step "boot the disk"
 # both. It is typed blind into plymouth - there is no field to click - and Return submits it.
 # `optional` is NOT used here: a disk that needs no unlock must not hang, so the type is guarded
 # by the prompt's own words.
-
-
-step "the disk asks for its passphrase, when it is encrypted"
-  repeat
-    do
-      item
-        settle 5
-      item "read the screen"
-        read
-          name unlock
-    until
-      bind locked
-      source unlock
-      mode text
-      rect [600, 480, 1320, 600]
-      rect_at [1920, 1080]
-      scale 1
-      words [[unlock, disk], [cryptsetup]]
-    max 40
-  optional
-
-
-step "answer the passphrase prompt"
-  settle 2
-  input text "{{ password }}"
-  when [unlock]
-
-
-step "submit the passphrase"
-  input ret
-  settle 20
-# THE FIELD IS AT (1165, 227), NOT (1120, 283) - THE CLICK LANDED 56 PIXELS BELOW IT.
-#
-# MEASURED ON RUN 44939896523, whose last frame is the greeter with its own error on it:
-#
-#	VM User   [ Password: ]   pam_authenticate: AUTH_ERR
-#
-# The card's password row spans x 1030..1300 and y 205..250 - read off that frame - so its centre
-# is (1165, 227). The old coordinate was (1120, 283): below the field, on the card's body. The
-# click therefore never focused the input, the `type:` after it went to the window rather than the
-# field, and PAM reported what it always reports for an empty password.
-#
-# AND THE THREE `when: [password, vmuser]` GUARDS COULD NOT HAVE CAUGHT IT: nothing binds a fact by
-# those names, so they never gated anything. The greeter is recognised here by what it prints.
-# THE CARD MOVES, SO THE BAND COVERS BOTH PLACES IT HAS BEEN SEEN.
-#
-# MEASURED ON TWO RUNS, and the frames disagree by about 30 pixels vertically:
-#
-#	44939896523   the password row at y 205..250   (centre 1165, 227)
-#	44940558351   the password row at y 240..275   (centre 1155, 258)
-#
-# The first fix pinned the band to the first frame and the click to its centre, so the next run -
-# whose card sat lower - failed the loop for thirty attempts on a greeter that was plainly on
-# screen. The band below spans both rows, and the click lands on the row's own middle so either
-# position puts the cursor in the field.
-
-
-step "greeter - the password box"
-  # THE BAND IS THE PASSWORD ROW AND NOTHING ELSE, AND THE SCALE IS THE ONE THAT READ IT.
-  #
-  # MEASURED ON RUN 44941160575, whose daemon log is the check's own reading:
-  #
-  #	see: 2 word(s): VM User
-  #	greeter - the password box [check]: up = false (none of "password" in "VM User")
-  #
-  # THE BAND WAS READING THE NAME ABOVE THE FIELD. The card's vertical position varies between boots
-  # (measured at y 205..250 and y 240..275 in two runs), so a band wide enough to cover both also
-  # covers "VM User" - and the reader returned that line and stopped. Cutting the "VM" line out
-  # would make the band miss one of the two positions, so instead the words are what the row
-  # actually says and the scale is raised until the placeholder is legible: a local crop of this
-  # very frame at scale 2 reads "i@ Password: o", so the text IS there to be read.
-  repeat
-    do
-      item
-        settle 3
-      item "read the screen"
-        read
-          name greeter
-    until
-      bind up
-      source greeter
-      mode text
-      rect [1010, 215, 1300, 280]
-      rect_at [1920, 1080]
-      scale 3
-      words [[password]]
-    max 40
-# ONE CLICK AT y = 245, WHICH IS INSIDE BOTH ROWS THIS FIELD HAS BEEN SEEN AT.
-#
-# 205..250 and 240..275 overlap between 240 and 250, so 245 lands in the field whichever place the
-# card takes - no probing, no second click that could toggle focus back out.
-
-
-step "greeter - focus the field"
-  input 1155 245
-  settle 2
-
-
-step "greeter - log in"
-  settle 3
-  input text "{{ password }}"
-
-
-step "greeter - submit"
-  input ret
-  settle 12
-# `ctrl+alt+t`, LIKE EVERY PASSING SIBLING, INSTEAD OF A CLICK ON A TASKBAR ICON.
-#
-# The old line clicked (1092, 1048) - one item in pop's dock, at a position that depends on which
-# icons that install decided to put there. A shortcut the window manager handles does not.
-# THE SHORTCUT IS TRIED, THEN THE DOCK ICON - BECAUSE THE SHORTCUT DID NOT OPEN A TERMINAL HERE.
-#
-# MEASURED ON RUN 44942046620: the login worked (its recording is a full GNOME desktop with the
-# dock) and the stage still failed `wait for sshd` with `connection refused`, which is what a guest
-# looks like when every command was typed into a desktop that has no terminal on it. `ctrl+alt+t`
-# is a GNOME setting this image does not carry.
-#
-# THE DOCK HAS A TERMINAL ICON: the dark `>_` tile in the recording, centred at about (1087, 1038)
-# on a 1920x1080 frame. So the shortcut is pressed, the prompt is waited for, and the dock tile is
-# clicked only if no prompt appeared - a fallback that is a fact on screen, not a fixed sleep.
-
-
-step "open the terminal"
-  input ctrl+alt+t
-  settle 8
-# THREE WAYS IN, IN ORDER, BECAUSE TWO WERE MEASURED TO FAIL ON THIS IMAGE.
-#
-# MEASURED, in the recordings: `ctrl+alt+t` does nothing (it is a GNOME setting pop does not carry),
-# and the first dock click at (1087,1038) missed as well. The frame that shows the dock after a
-# successful login puts the terminal tile - the dark `>_` square - at the CENTRE (1087,1040) of a
-# dock whose icons are 64 px wide and whose row is at y 1008..1072; the click has to land on the
-# window, and a click that arrives while the dock is still animating in is discarded.
-#
-# SO EACH ATTEMPT DOES ALL THREE: click the tile, press Super and type the name (GNOME's own
-# search, which does not depend on a dock position at all), then Return. Whichever one worked, the
-# prompt appears and the loop stops; a step that presses all three when one is enough costs a few
-# seconds and cannot lose the terminal to a single missed click.
-
-
-step "the terminal is open, or the dock icon is clicked"
-  repeat
-    do
-      item
-        input 1087 1040
-        settle 4
-      item
-        input meta_l
-        settle 3
-      item
-        settle 3
-        input text terminal
-      item
-        input ret
-        settle 8
-      item
-        settle 2
-      item "read the screen"
-        read
-          name term
-    until
-      bind up
-      source term
-      mode text
-      rect [200, 420, 1700, 900]
-      rect_at [1920, 1080]
-      scale 1
-      words [[pop-os], [popos], [vmuser]]
-    max 5
-# NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
-#
-# `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
-# opened one, so a second ctrl+alt+t starts a NEW terminal window and the keys that follow go to
-# it - while the command already typed into the first one is never submitted.
-#
-# MEASURED ON RUN 44545555943's kubuntu ssh recording, whose terminal shows exactly that:
-#
-#	vmuser@kubuntu:~$ xset s off; xset -dpms; xset s noblank; echo SCREEN_KEPT_ONECHO ADMIN | sudo ...
-#	server does not have extension for -dpms option
-#	[sudo: authenticate] Password:
-#
-# `SCREEN_KEPT_ON` runs straight into `ECHO ADMIN` with no line break: the Return after the first
-# command went to the OTHER window. And the `xset -dpms` failure - "server does not have extension
-# for -dpms option" - is harmless; the screen is still kept awake by `s off` and `s noblank`.
-# UBUNTU'S SHAPE: unlock sudo ONCE, then plain sudo for everything.
-#
-# MEASURED ACROSS THIS SESSION: every leg that failed at 'wait for sshd' had the terminal show
-# either 'CHO: command not found' (the previous command's Return was not delivered, so 'echo
-# admin' lost its first two characters) or 'sudo: no password was provided'. Both are the same
-# fault - the password travels in the command line - and both are cured by authenticating once
-# and letting sudo keep the timestamp.
-
-
-step "unlock sudo once for this session"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
-  settle 4
-# THE PACKAGE INDEX IN THIS DISK IS STALE, AND THE FIRST ATTEMPT GOT A 404.
-#
-# MEASURED ON RUN 44557723577's successor, whose terminal reads
-#
-#	Err:1 http://apt.pop-os.org/ubuntu noble-updates/main amd64 openssh-sftp-server 1:9.6p1-3ubuntu13.5
-#	  404  Not Found
-#	Err:2 http://apt.pop-os.org/ubuntu noble-updates/main amd64 openssh-server 1:9.6p1-3ubuntu13.5
-#	  404  Not Found
-#	E: Failed to fetch ... 404  Not Found
-#
-# sudo was already unlocked and the terminal was fine - the failure is the index: this disk's
-# apt lists point at a package version pop-os has since replaced. `apt-get update` first, which is
-# what the error message itself recommends.
-
-
-step "refresh the package index"
-  run "sudo apt-get update 2>&1 | tail -3"
-  settle 45
-
-
-step "install openssh-server"
-  run "sudo apt-get install -y openssh-server"
-  settle 60
-
-
-step "allow password authentication"
-  run "sudo sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config ; sudo grep -i \"^PasswordAuthentication\" /etc/ssh/sshd_config"
-  settle 3
-
-
-step "enable ssh at boot"
-  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
-  settle 8
 
 
 step "wait for sshd"
@@ -290,4 +79,4 @@ step "wait for the machine to stop"
 
 
 step "publish the disk"
-  save "{{ out }}"
+    save "{{ out }}"

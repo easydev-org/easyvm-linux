@@ -77,6 +77,9 @@ jobs:
             "pull": "${{ inputs.from_tag }}",
             "out": "linux-mint-ssh.qcow2",
             "timeout": 60,
-            "publish": "linux-mint-ssh"
+            "publish": "linux-mint-ssh",
+            "seed": "true",
+            "seed-family": "apt"
+
           }
         ]

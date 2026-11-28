@@ -179,8 +179,7 @@ log "extracted $(du -sm "$TREE" | cut -f1) MiB"
 #
 # MEASURED on the first CI run (46145158095, step 5 of 7):
 #
-#	$ printf '%s
-' 'admin1' | sudo -S -p '' poweroff
+#	$ printf '%s\\n' 'admin1' | sudo -S -p '' poweroff
 #	sudo: sudo must be owned by uid 0 and have the setuid bit set
 #
 # So `sudo` existed and was not setuid, and every privileged step in the guest stopped working

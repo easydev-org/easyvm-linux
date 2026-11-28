@@ -10,114 +10,26 @@ var user
   from args.user
 
 
+# THERE IS NO LOGIN, NO TERMINAL AND NO install HERE, AND THAT IS THE POINT.
+#
+# This stage used to type its way through a greeter and a dozen commands in a terminal, and
+# MEASURED over ten runs of its sibling zorin the virtual keyboard drops and doubles characters
+# at line boundaries - one lost `'` leaves bash at a `>` prompt that swallows every later
+# command, so `wait for sshd` ran against a machine whose install had never executed.
+#
+# The disk this leg pulls has had an ssh server put into it BEFORE its first boot, by
+# `scripts/seed-ssh.sh` (see the `seed` row in the workflow), together with the offline half of
+# vm-configure: hostname, time zone, locale, automatic login and the screen-lock settings.
+#
+# So the only work left is to boot it and to check that the promise holds: a session, a kernel,
+# an account. Not one keystroke.
+
 
 step "boot the disk"
   boot
     machine "q35,accel=kvm,vmport=off"
     args [["-drive", "if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd"], ["-drive", "if=pflash,format=raw,file=OVMF_VARS.fd"], ["-m", "4096"], ["-chardev", "socket,id=qga0,path=qga.sock,server=on,wait=off"], ["-device", "virtio-serial"], ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"], ["-device", "VGA,xres=1920,yres=1080,vgamem_mb=32"], ["-device", "qemu-xhci,id=xhci"], ["-device", "usb-tablet,bus=xhci.0"], ["-device", "usb-kbd,bus=xhci.0"], ["-drive", "file=disk.qcow2,if=none,format=qcow2,discard=unmap,id=target"], ["-device", "virtio-blk-pci,drive=target,bootindex=0"], ["-audiodev", "none,id=snd0"], ["-device", "ich9-intel-hda"], ["-device", "hda-duplex,audiodev=snd0"], ["-netdev", "tap,id=net0,ifname=qemutap0,script=no,downscript=no"], ["-device", "virtio-net-pci,netdev=net0,mac=52:54:00:56:4d:01,romfile=,host_mtu=1450"]]
     timeout 900
-step "the greeter is drawn"
-  repeat
-    do
-      item
-        input esc
-        settle 3
-      item
-        settle 2
-      item "read the screen"
-        read
-          name greeter
-    until
-      bind up
-      source greeter
-      mode text
-      rect [80, 480, 480, 640]
-      rect_at [1920, 1080]
-      scale 1
-      words [[vmuser], [password]]
-    max 60
-
-
-step "greeter - the password box"
-  input 259 568
-  settle 2
-
-
-step "greeter - log in"
-  settle 3
-  input text "{{ password }}"
-
-
-step "greeter - submit"
-  input ret
-  settle 12
-
-  # THE SESSION TAKES LONGER THAN THE TWELVE SECONDS AFTER `Return`, AND A CHORD PRESSED IN THAT
-  # GAP GOES TO THE GREETER. This is the same gate the same medium's install walk uses.
-
-step "wait for the desktop"
-  repeat
-    do
-      item
-        read
-          name screen
-    until
-      source screen
-      mode like
-      reference reference/desktop.png
-      range [0.9, 1]
-      rect [1500, 150, 1900, 350]
-      rect_at [1920, 1080]
-      must true
-    max 180
-    pause 5
-
-
-step "open the terminal"
-  input ctrl+alt+t
-  settle 20
-
-  # NO `terminal_wait:` HERE, AND THAT IS THE FIX RATHER THAN AN OMISSION.
-  #
-  # `terminal_wait:` OPENS A TERMINAL (ctrl+alt+t) AND THEN TYPES. The step above has already
-  # opened one, so a second ctrl+alt+t starts a NEW terminal window and the keys that follow go to
-  # it - while the command already typed into the first one is never submitted.
-  #
-  # MEASURED ON RUN 44545555943's kubuntu ssh recording, whose terminal shows exactly that:
-  #
-  #	vmuser@kubuntu:~$ xset s off; xset -dpms; xset s noblank; echo SCREEN_KEPT_ONECHO ADMIN | sudo ...
-  #	server does not have extension for -dpms option
-  #	[sudo: authenticate] Password:
-  #
-  # `SCREEN_KEPT_ON` runs straight into `ECHO ADMIN` with no line break: the Return after the first
-  # command went to the OTHER window. And the `xset -dpms` failure - "server does not have extension
-  # for -dpms option" - is harmless; the screen is still kept awake by `s off` and `s noblank`.
-  # UBUNTU'S SHAPE: unlock sudo ONCE, then plain sudo for everything.
-  #
-  # MEASURED ACROSS THIS SESSION: every leg that failed at 'wait for sshd' had the terminal show
-  # either 'CHO: command not found' (the previous command's Return was not delivered, so 'echo
-  # admin' lost its first two characters) or 'sudo: no password was provided'. Both are the same
-  # fault - the password travels in the command line - and both are cured by authenticating once
-  # and letting sudo keep the timestamp.
-
-step "unlock sudo once for this session"
-  run "printf '%s\\n' {{ password }} | sudo -S -v"
-  settle 4
-
-
-step "install openssh-server"
-  run "sudo apt-get install -y openssh-server"
-  settle 60
-
-
-step "allow password authentication"
-  run "sudo sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config ; sudo grep -i \"^PasswordAuthentication\" /etc/ssh/sshd_config"
-  settle 3
-
-
-step "enable ssh at boot"
-  run "sudo systemctl enable --now ssh; sudo systemctl disable --now ufw 2>/dev/null; sudo ufw disable 2>/dev/null; sudo systemctl disable --now firewalld 2>/dev/null; sudo systemctl stop firewalld 2>/dev/null; sudo iptables -P INPUT ACCEPT 2>/dev/null; sudo nft flush ruleset 2>/dev/null; sudo sysctl -w net.ipv4.conf.all.rp_filter=2 >/dev/null 2>&1; sudo sysctl -w net.ipv4.conf.default.rp_filter=2 >/dev/null 2>&1; for i in /proc/sys/net/ipv4/conf/*/rp_filter; do echo 2 | sudo tee "$i" >/dev/null 2>&1; done; echo FIREWALL_OFF"
-  settle 8
 
 
 step "wait for sshd"
