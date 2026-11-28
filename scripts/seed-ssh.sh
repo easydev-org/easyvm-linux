@@ -241,15 +241,40 @@ fi
 log "extracting the root filesystem with debugfs rdump (read-only)"
 mkdir -p "$TREE"
 printf 'rdump / %s\n' "$TREE" > "$WORK/rd.cmd"
-if ! debugfs "$PART_IMG" -f "$WORK/rd.cmd" > "$WORK/rd.log" 2>&1; then
-    log "rdump failed:"
-    tail -5 "$WORK/rd.log"
-    exit 1
-fi
-if grep -qiE "Filesystem not open|short read|not open" "$WORK/rd.log"; then
-    log "rdump reported a filesystem error:"
-    tail -5 "$WORK/rd.log"
-    exit 1
+
+extract() {
+    rm -rf "$TREE"
+    mkdir -p "$TREE"
+    debugfs "$PART_IMG" -f "$WORK/rd.cmd" > "$WORK/rd.log" 2>&1 || true
+    if grep -qiE "Filesystem not open|short read|Block bitmap checksum|Free blocks count|not open" "$WORK/rd.log"; then
+        return 1
+    fi
+    [ -x "$TREE/bin/sh" ] || [ -x "$TREE/usr/bin/env" ]
+}
+
+if ! extract; then
+    # A SLICE THAT IS A COPY MAY BE REPAIRED; THE PUBLISHED DISK IS NEVER TOUCHED.
+    #
+    # MEASURED on mint (run 46155289642), whose partition IS ext4 (magic 53ef at +0x438) and
+    # whose rdump answered
+    #
+    #	Block bitmap checksum does not match bitmap while reading allocation bitmaps
+    #	rdump: Filesystem not open
+    #
+    # That is a filesystem that came out of its installer with a stale checksum - not a slice
+    # this script got wrong, and not something to refuse. `e2fsck -fy` repairs the COPY, and the
+    # disk the next stage pulls is the one mke2fs writes afterwards, so a repair here cannot
+    # change anything the installer produced.
+    log "  rdump could not read the filesystem; repairing the COPY and retrying"
+    tail -3 "$WORK/rd.log" | sed 's/^/    /'
+    e2fsck -fy "$PART_IMG" > "$WORK/fsck.log" 2>&1 || true
+    tail -3 "$WORK/fsck.log" | sed 's/^/    /'
+    if ! extract; then
+        log "  rdump still cannot read the filesystem after a repair:"
+        tail -5 "$WORK/rd.log"
+        exit 1
+    fi
+    log "  the repaired copy reads cleanly"
 fi
 
 # THE GUARD NAMES WHAT A COMPLETE EXTRACTION MUST CONTAIN, because "is there a /bin/sh" passed
