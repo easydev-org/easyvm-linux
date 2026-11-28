@@ -157,14 +157,79 @@ PY
 log "the filesystem uuid to keep: $WANT_UUID"
 
 # ------------------------------------------------------------------ extract (read only)
+#
+# `debugfs -f commandfile` DOES NOT UNDERSTAND `?offset=`, AND SILENTLY EXTRACTS PART OF THE TREE.
+# MEASURED: the one-line form
+#
+#	debugfs "image?offset=1128267776" -R "stat /usr/lib/cargo/bin/sudo"     -> works
+#	debugfs "image?offset=1128267776" -f commands.txt                      -> "Filesystem not open"
+#
+# and with `|| true` around it the failure looked like success: /bin/sh came out (so the guard
+# below passed) while /usr/lib/cargo did not, which is exactly where Ubuntu 26.04 keeps the
+# `sudo-rs` binary. The guest then had a `sudo` that resolved to nothing and every privileged
+# command answered "sudo must be owned by uid 0 and have the setuid bit set".
+#
+# SO THE PARTITION IS SLICED OUT FIRST and rdump runs against a plain file. `dd conv=sparse` keeps
+# the holes holes, so a 127 GiB partition with 13 GiB of contents costs 13 GiB.
+log "slicing the root partition out (sparse) so debugfs can read it"
+PART_IMG="$WORK/part.img"
+dd if="$BASE" of="$PART_IMG" bs=1M skip=$((START_BYTE / 1048576)) \
+   count=$((PART_BYTES / 1048576)) conv=sparse status=none
+log "  sliced $(du -sm "$PART_IMG" | cut -f1) MiB of real blocks"
+
+# THE PARTITION'S FIRST BYTES ARE CHECKED BEFORE rdump IS ASKED TO WALK IT.
+#
+# MEASURED on two images in the same batch: ubuntu's root partition answers `rdump /` in 19 s and
+# produces 13 GiB, while mint's answered in 5 s with an empty tree and no error - the same script,
+# the same partition offset (513 MiB) and the same size. A made-up answer from a slice that is not
+# the filesystem it claims to be is indistinguishable from a filesystem that is empty, so the
+# magic is read first and reported.
+magic=$(dd if="$PART_IMG" bs=2 skip=$(((1024 + 0x38) / 2)) count=1 status=none 2>/dev/null | od -An -tx1 | tr -d ' \n')
+log "  partition magic at +0x438: ${magic:-<unreadable>} (ext4 is 53ef)"
+if [ "$magic" != "53ef" ]; then
+    log "  this partition does not start with an ext4 superblock; refusing to seed it"
+    log "  first 64 bytes: $(dd if="$PART_IMG" bs=64 count=1 status=none 2>/dev/null | od -An -tx1 | head -2 | tr '\n' ' ')"
+    exit 1
+fi
+
 log "extracting the root filesystem with debugfs rdump (read-only)"
 mkdir -p "$TREE"
 printf 'rdump / %s\n' "$TREE" > "$WORK/rd.cmd"
-debugfs "$BASE?offset=$START_BYTE" -f "$WORK/rd.cmd" >/dev/null 2>&1 || true
-[ -x "$TREE/bin/sh" ] || [ -x "$TREE/usr/bin/env" ] || {
-    log "extract produced no usable tree"
+if ! debugfs "$PART_IMG" -f "$WORK/rd.cmd" > "$WORK/rd.log" 2>&1; then
+    log "rdump failed:"
+    tail -5 "$WORK/rd.log"
+    exit 1
+fi
+if grep -qiE "Filesystem not open|short read|not open" "$WORK/rd.log"; then
+    log "rdump reported a filesystem error:"
+    tail -5 "$WORK/rd.log"
+    exit 1
+fi
+
+# THE GUARD NAMES WHAT A COMPLETE EXTRACTION MUST CONTAIN, because "is there a /bin/sh" passed
+# while a whole directory was missing. MEASURED on run 87c1b22: rdump was called as
+#
+#	debugfs "$BASE?offset=$START_BYTE" -f "$WORK/rd.cmd" >/dev/null 2>&1 || true
+#
+# `?offset=` IS NOT UNDERSTOOD BY `-f` - only by `-R` - so debugfs answered "Filesystem not open",
+# the `|| true` swallowed it, and the few directories it had already walked (including /bin/sh)
+# made the shallow check pass. /usr/lib/cargo, where Ubuntu 26.04 keeps `sudo-rs`, was absent.
+#
+# So the check is a count against the source filesystem, not a few paths: a tree that lost a
+# subtree is caught here rather than three steps later in the guest.
+want=$(debugfs -R "stat /" "$PART_IMG" 2>/dev/null | sed -n 's/.*Links: \([0-9]*\).*/\1/p')
+got=$(find "$TREE" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
+[ "$got" -ge 10 ] || {
+    log "extract produced $got top-level entries - the tree is not complete"
     exit 1
 }
+for probe in bin usr etc var; do
+    [ -d "$TREE/$probe" ] || {
+        log "extract has no /$probe - the tree is not complete"
+        exit 1
+    }
+done
+[ -n "$want" ] || log "  (could not read the source's link count; the path check above stands)"
 log "extracted $(du -sm "$TREE" | cut -f1) MiB"
 
 # ------------------------------------------------------------------ restore what rdump drops
@@ -207,20 +272,20 @@ log "restoring the setuid and setgid bits rdump drops"
 # is not recursive, so the walk is done here over the directories that hold privileged binaries;
 # `find` on the source is not possible (it is an ext4 inside an image) and a package file list
 # would miss what a postinst sets.
-python3 - "$BASE" "$START_BYTE" "$TREE" <<'PY'
+python3 - "$PART_IMG" 0 "$TREE" <<'PY'
 import os
 import re
 import subprocess
 import sys
 
 raw, start, tree = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-dev = "%s?offset=%d" % (raw, start)
+# `?offset=0` IS NOT THE SAME AS NO OFFSET, and MEASURED it reads nothing back: the slicing pass
+# hands this a file that already begins at the partition, so the offset is 0 and the `?offset=`
+# suffix must not be appended at all.
+dev = raw if start == 0 else "%s?offset=%d" % (raw, start)
 
 # debugfs `ls -l` line: "<inode> <mode> (<links>) <uid> <gid> <size> <date> <time> <name>"
 LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+\(\s*\d+\)\s+\d+\s+\d+\s+\d+\s+\S+\s+\S+\s+(.+?)\s*$")
-
-SEARCH = ["/usr/bin", "/usr/sbin", "/bin", "/sbin",
-          "/usr/lib", "/usr/libexec", "/usr/local/bin", "/usr/local/sbin"]
 
 def listing(path):
     r = subprocess.run(["debugfs", "-R", "ls -l " + path, dev],
@@ -295,6 +360,15 @@ for path, want in mode_by_path.items():
 print("chmod: %d of %d entries corrected, %d with setuid/setgid"
       % (fixed, len(mode_by_path), new_mode))
 
+# NAME WHAT WAS FOUND, so a tree that lost a subtree says so here rather than three steps later.
+import collections
+have = sum(1 for p in mode_by_path if p.startswith("/usr/lib/cargo"))
+print("probe: %d entries under /usr/lib/cargo, %d setuid overall"
+      % (have, sum(1 for m in mode_by_path.values() if m & 0o4000)))
+for p in sorted(mode_by_path):
+    if "cargo/bin" in p and ("sudo" in p or p.endswith("/su")):
+        print("  %o %s" % (mode_by_path[p], p))
+
 # THE PATH THIS EXISTS FOR, NAMED SO A REGRESSION IS LOUD RATHER THAN A GUEST THAT CANNOT sudo.
 checked = 0
 for probe in ("/usr/bin/sudo.ws", "/usr/lib/cargo/bin/sudo", "/usr/bin/su", "/usr/bin/passwd",
@@ -312,6 +386,7 @@ if checked == 0:
 print("setuid: %d privileged binaries verified" % checked)
 PY
 
+rm -f "$PART_IMG"
 log "device nodes rebuilt"
 
 # ------------------------------------------------------------------ prepare to chroot
