@@ -167,6 +167,110 @@ debugfs "$BASE?offset=$START_BYTE" -f "$WORK/rd.cmd" >/dev/null 2>&1 || true
 }
 log "extracted $(du -sm "$TREE" | cut -f1) MiB"
 
+# ------------------------------------------------------------------ restore what rdump drops
+#
+# `debugfs rdump` CREATES FILES THROUGH THE NORMAL open()/write() PATH, so it inherits the
+# umask and does NOT restore:
+#
+#	ownership outside this uid      (a build runs as root, so root-owned files survive)
+#	THE SETUID / SETGID BITS        (this is the one that breaks a booted system)
+#	device numbers on /dev nodes    (recreated below)
+#	xattrs and capabilities
+#
+# MEASURED on the first CI run (46145158095, step 5 of 7):
+#
+#	$ printf '%s
+' 'admin1' | sudo -S -p '' poweroff
+#	sudo: sudo must be owned by uid 0 and have the setuid bit set
+#
+# So `sudo` existed and was not setuid, and every privileged step in the guest stopped working
+# while an unprivileged `uname -a` still answered - which is exactly the shape this fix removes.
+#
+# THE BITS ARE TAKEN FROM THE SOURCE FILESYSTEM, not guessed: `debugfs -R "ls -l"` prints the
+# real mode of every entry, and that is what is applied. Guessing them from a package's file
+# list would miss the ones a postinst sets.
+log "restoring the setuid and setgid bits rdump drops"
+#
+# MEASURED, and this is the exact failure the first CI run hit at step 5 of 7:
+#
+#	$ printf '%s\n' 'admin1' | sudo -S -p '' poweroff -> 1
+#	sudo: sudo must be owned by uid 0 and have the setuid bit set
+#
+# `debugfs rdump` creates each file through open()/write(), so the mode comes from the umask:
+#
+#	on the source filesystem:  /usr/bin/sudo.ws = 04755
+#	after rdump:               /usr/bin/sudo.ws =  755
+#
+# An unprivileged `uname -a` still answers, which is why the stage looked healthy three steps
+# long - only a privileged command reveals it.
+#
+# THE MODES ARE READ FROM THE SOURCE FILESYSTEM IN ONE PASS, not guessed. `debugfs -R "ls -l /"`
+# is not recursive, so the walk is done here over the directories that hold privileged binaries;
+# `find` on the source is not possible (it is an ext4 inside an image) and a package file list
+# would miss what a postinst sets.
+python3 - "$BASE" "$START_BYTE" "$TREE" <<'PY'
+import os
+import re
+import subprocess
+import sys
+
+raw, start, tree = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+dev = "%s?offset=%d" % (raw, start)
+
+# debugfs `ls -l` line: "<inode> <mode> (<links>) <uid> <gid> <size> <date> <time> <name>"
+LINE = re.compile(r"^\s*(\d+)\s+(\d+)\s+\(\s*\d+\)\s+\d+\s+\d+\s+\d+\s+\S+\s+\S+\s+(.+?)\s*$")
+
+SEARCH = ["/usr/bin", "/usr/sbin", "/bin", "/sbin",
+          "/usr/lib", "/usr/libexec", "/usr/local/bin", "/usr/local/sbin"]
+
+def listing(path):
+    r = subprocess.run(["debugfs", "-R", "ls -l " + path, dev],
+                       capture_output=True, text=True, errors="replace")
+    return r.stdout
+
+fixed = new_mode = 0
+mode_by_path = {}
+for root in SEARCH:
+    if not os.path.isdir(tree + root):
+        continue
+    for line in listing(root).splitlines():
+        m = LINE.match(line)
+        if not m:
+            continue
+        mode, name = int(m.group(2), 8), m.group(3).strip()
+        if name in (".", "..") or not name:
+            continue
+        # `ls -l` in debugfs prints the size and date, and a name with spaces would have been
+        # split; privileged binaries do not have spaces, so a name containing one is skipped
+        if " " in name:
+            continue
+        mode_by_path[root.rstrip("/") + "/" + name] = mode & 0o7777
+
+for path, want in mode_by_path.items():
+    target = tree + path
+    if not os.path.lexists(target):
+        continue
+    if os.path.islink(target):
+        continue
+    try:
+        cur = os.stat(target).st_mode & 0o7777
+    except OSError:
+        continue
+    if cur != want:
+        try:
+            os.chmod(target, want)
+            fixed += 1
+            if want & 0o6000:
+                new_mode += 1
+        except OSError:
+            pass
+print("chmod: %d entries restored, %d of them setuid/setgid" % (fixed, new_mode))
+if new_mode == 0:
+    raise SystemExit("no setuid bit was restored - the open/sudo path would fail in the guest")
+PY
+
+log "device nodes rebuilt"
+
 # ------------------------------------------------------------------ prepare to chroot
 #
 # THE DEVICE NODES ARE THE PART THAT MICROVM MEASURED: "pacman's own scriptlets fail with
