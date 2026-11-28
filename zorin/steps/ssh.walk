@@ -235,8 +235,17 @@ step "dismiss the updater panel that is already up"
 # left the shell at a `>` prompt, which swallowed the whole rest of the stage. The panel's raiser is
 # `packagekitd` (started through dbus by gnome-software), so the raiser is masked with SHORT commands
 # that cannot open a quote, and the panel that is already up was dismissed by the step above.
-step "mask packagekit, which is what raises the panel"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl mask packagekit"
+# MASKING PACKAGEKIT BREAKS APT's OWN TRIGGERS.
+#
+# MEASURED on probe 13 at 11:16 PM, immediately after a SUCCESSFUL install:
+#
+#	Error: GDBus.Error:org.freedesktop.systemd1.UnitMasked: Unit packagekit.service is masked.
+#
+# apt runs `dbus`/`systemd` triggers after unpacking openssh-server, and one of them asks for
+# packagekit. `systemctl stop` is enough to keep the panel away for the minutes this stage needs,
+# and it does not leave a masked unit for a trigger to fail on.
+step "stop packagekit, which is what raises the panel"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl stop packagekit"
   settle 3
 
 
@@ -642,212 +651,74 @@ step "reset the shell, in case a quote is still open"
   settle 2
 
 
-step "allow password authentication"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sed -i \"s/^#\\?\\s*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config ; printf '%s\\n' {{ password }} | sudo -S -p '' grep -i \"^PasswordAuthentication\" /etc/ssh/sshd_config"
-  settle 3
-# THE ENABLE IS NOT DECORATION: `policy-rc.d returned 101` means the package install was told NOT
-# to start the service, so this is the step that makes sshd run at all.
-# ENABLE AND START AS ONE NON-BLOCKING REQUEST, THE WAY THE SIBLINGS THAT PASS DO.
+# THE REST IS SHORT LINES TOO, FOR THE SAME MEASURED REASON AS THE INSTALL.
 #
-# MEASURED ON RUN 44959488705, whose ssh stage reached step 24 of 29 - past the greeter, the login
-# and the terminal - and then spent its ten minutes on `connection refused`:
-#
-#	wait for sshd: nothing accepted ssh on 172.30.0.1:2222 within 10m0s
-#
-# Two separate `systemctl enable` and `systemctl start` are two chances for the unit to be queued
-# and not run, and `start` was measured on the opensuse guest to hold the console for minutes. One
-# `enable --now --no-block` is the request the passing guests use, and the step after it proves the
-# result instead of assuming it.
+# A long typed line loses characters (see the install's note: a whole `printf | sudo -S` prefix went
+# missing from the middle of one), and a lost `'` opens a quote that swallows everything after it.
+# Each of these writes ONE short line into /tmp/s.sh, `cat` proves the file, and then it is run.
+step "start the ssh-side script"
+  run "echo '#!/bin/sh' > /tmp/s.sh"
+  settle 2
 
 
-# A `run:` IS ONLY A COMMAND IF SOMETHING READS BACK THAT IT RAN.
-#
-# MEASURED on run 45916730145: this stage's commands typed into a desktop whose session had dropped
-# to the greeter after a restart, and the only report was `wait for sshd: no route to host` ten
-# minutes later. A `run:` returns nothing; the SCREEN is the witness. So the line ends with a word
-# and the next step waits for that word - a command that did not run fails HERE, by name.
-# CLEAR THE POLKIT MODAL BEFORE THE COMMAND THAT NEEDS THE KEYBOARD.
-#
-# MEASURED on run 45925832220: the recording at 470 s is an "Authentication Required" modal over the
-# terminal - "Sorry, that didn't work. Please try again." - and the enable line's keystrokes never
-# reached the shell. Escape dismisses it; the click on its own Cancel button is the second half, at
-# (860,705) read off that frame, because Escape alone was measured to leave it up when it had focus
-# in its password field.
-step "clear the authentication modal, which holds the keyboard"
-  do
-    item
-      input esc
-      settle 2
-    item
-      input 860 705
-      settle 2
-    item
-      input esc
-      settle 2
+step "script: create /etc/ssh"
+  run "echo 'mkdir -p /etc/ssh' >> /tmp/s.sh"
+  settle 2
 
 
-# THIS IMAGE IS SOCKET-ACTIVATED, AND `enable ssh` STARTS THE WRONG UNIT.
-#
-# MEASURED on run 45938430145's recording at 700 s, on the terminal:
-#
-#	$ systemctl list-unit-files | grep -E "^ssh"
-#	ssh.service            disabled  enabled
-#	ssh.socket             enabled   enabled
-#
-# `systemctl enable --now ssh` resolves to ssh.service, which is DISABLED here and does not listen:
-# the listener is ssh.socket. So sshd never had a socket, and every probe was "no route to host" on a
-# guest whose config was correct (SSHD_CONFIG_OK, PasswordAuthentication yes are both on that frame).
-#
-# Starting `ssh.socket` is what opens :22 on a socket-activated system, and `enable ssh` is kept so a
-# boot without the socket still seeds the service. `daemon-reload` first, because the unit files were
-# just written.
-step "enable and start ssh in one request"
-  # `policy-rc.d` REFUSES TO RUN ssh.socket, WHICH IS WHY `start` DID NOTHING.
-  #
-  # MEASURED on run 45951845950's recording at 1100 s, on the terminal:
-  #
-  #	$ sudo systemctl start ssh.socket ...; ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF
-  #	Firewall stopped and disabled on system startup
-  #	NO_LISTENER
-  #	FIREWALL_OFF
-  #	$ systemctl is-active ssh
-  #	inactive
-  #
-  # sudo itself is fine by this run (that is the `printf` fix working). The listener is what is
-  # missing, and line 225 of this file already records the reason: `/usr/sbin/policy-rc.d returned
-  # 101, not running 'restart ssh.socket'`. policy-rc.d is the mechanism an image uses to forbid
-  # services from starting during a package install, and on this image it is still in place - so
-  # `systemctl start ssh.socket` is refused with no error. Removing it, re-enabling, and starting
-  # again is what makes the socket real; `ssh.service` is started after it as a belt.
-  #
-  # AND THE FIREWALL MUST COME DOWN TOO - THIS LINE LOST IT, AND THAT COST A RUN.
-  #
-  # MEASURED on run 45961227643: the recording at 2194 s shows sshd PERFECTLY UP -
-  # `active`, `LISTEN 0 4096 0.0.0.0:22`, `LISTEN [::]:22` - and the probe still
-  # answered `dial tcp 172.30.0.1:2222: connect: no route to host` for its whole
-  # fifteen minutes, while `icmp guest` was `ICMP_OK 2/2` on the same host. ICMP
-  # passing and TCP/22 not is a FIREWALL, and the reason this file's earlier version
-  # carried `ufw disable` / `iptables -P INPUT ACCEPT` / `rp_filter=2` is exactly
-  # that: zorin is Ubuntu-based, ufw is enabled by default, and it drops incoming
-  # TCP while leaving echo-reply alone.
-  #
-  # When this step was rewritten to remove policy-rc.d, those lines went with it.
-  # They are back, in the same sh -c so they carry the same authentication.
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' rm -f /usr/sbin/policy-rc.d"
-  terminal_wait 0
+step "script: turn password auth on"
+  run "echo 'sed -i \"s/^#*PasswordAuthentication.*/PasswordAuthentication yes/\" /etc/ssh/sshd_config' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: create the host keys"
+  run "echo 'ssh-keygen -A' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: start the socket and the daemon"
+  run "echo 'systemctl start ssh.socket' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: start ssh itself"
+  run "echo 'systemctl start ssh' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: take the firewall down"
+  run "echo 'ufw disable' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: allow input, because ufw is not the only firewall"
+  run "echo 'iptables -P INPUT ACCEPT' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: say what the daemon is doing"
+  run "echo 'systemctl is-active ssh' >> /tmp/s.sh"
+  settle 2
+
+
+step "script: say whether anything listens on 22"
+  run "echo \"ss -lnt | grep ':22 ' || echo NO_LISTENER\" >> /tmp/s.sh"
+  settle 2
+
+
+step "script: say whether the config exists"
+  run "echo \"ls -l /etc/ssh/sshd_config || echo NO_SSHD_CONFIG\" >> /tmp/s.sh"
+  settle 2
+
+
+step "show the ssh script before running it"
+  run "cat /tmp/s.sh"
   settle 3
 
 
-# NO `2>/dev/null` HERE - THAT IS WHAT HID THE REASON FOR FIVE RUNS.
-#
-# MEASURED on run 46022084555's recording at 1400 s: typing is finally CLEAN (type_gap 0.15
-# fixed the doubled characters), `systemctl start ssh` prints NO error, and
-# `systemctl is-active ssh` then answers `inactive` with NO_LISTENER. The start was
-# refused or the unit exited at once, and every `2>/dev/null` in this block threw
-# away the sentence that said which.
-#
-# This step now shows systemctl's own output, the unit's state and its journal, so the
-# next run names the failure instead of "inactive".
-# sshd EXITS AT ONCE WHEN THERE ARE NO HOST KEYS, AND THIS FILE NEVER MADE ANY.
-#
-# MEASURED over five runs: `systemctl start ssh` prints nothing, then `systemctl is-active ssh`
-# answers `inactive` and `ss -lnt` has no :22. On this image `policy-rc.d returned 101` blocks the
-# package postinst, so openssh-server never generated its host keys - and an sshd with no
-# /etc/ssh/ssh_host_*_key exits immediately, exactly as observed.
-#
-# manjaro - which passes - has this step (`/usr/bin/ssh-keygen -A` in a `run:`) and zorin had none.
-# The key is generated here, before anything starts the daemon, and the step prints whether the key
-# landed so the next run names this layer instead of reporting `inactive`.
-step "reset the shell, in case a quote is still open"
-  input ctrl+c
-  settle 2
-
-
-step "make the host keys, or sshd exits the moment it starts"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh -c 'mkdir -p /etc/ssh; /usr/bin/ssh-keygen -A; ls /etc/ssh/ssh_host_ed25519_key >/dev/null 2>&1 && echo HOST_KEYS_OK || echo HOST_KEYS_MISSING'"
-  settle 4
-
-
-step "reset the shell, in case a quote is still open"
-  input ctrl+c
-  settle 2
-
-
-step "start ssh, with the socket, showing what systemctl says"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket; echo SOCKET_STARTED"
-  terminal_wait 0
-  settle 3
-
-
-step "reset the shell, in case a quote is still open"
-  input ctrl+c
-  settle 2
-
-
-step "start ssh itself"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh; systemctl is-active ssh"
-  settle 5
-
-
-step "reset the shell, in case a quote is still open"
-  input ctrl+c
-  settle 2
-
-
-step "take the firewall down"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' ufw disable 2>/dev/null; iptables -P INPUT ACCEPT 2>/dev/null; systemctl is-active ssh; ss -lnt | grep :22 || echo NO_LISTENER"
-  settle 10
-# THE POLKIT DIALOG RE-RAISES, AND IT EATS THE KEYBOARD.
-#
-# MEASURED on run 45925832220: the recording shows an "Authentication Required" modal over the
-# terminal - "To install or remove software, you need to authenticate" and, in red, "Sorry, that
-# didn't work. Please try again." - while the terminal behind it already holds `sudo -S -v`,
-# `systemctl ...` and other history. The enable line's keystrokes went to the modal, which is why
-# `FIREWALL_OFF` never appeared. `mask packagekit` does not stop polkit's agent, which is what draws
-# this.
-#
-# SO EACH READ IS PRECEDED BY A CLEAR: Escape returns focus to the terminal if the modal is up, and
-# Enter answers nothing. A modally-blocked screen answers "" - which is the empty string this step
-# reported - and the loop keeps going rather than failing on the first blank frame.
-step "reset the shell, in case a quote is still open"
-  input ctrl+c
-  settle 2
-
-
-step "resend the enable if the word never came, with the modal gone"
-  run "printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh.socket 2>/dev/null; printf '%s\\n' {{ password }} | sudo -S -p '' systemctl start ssh 2>/dev/null; printf '%s\\n' {{ password }} | sudo -S -p '' ss -lnt | grep :22 || echo NO_LISTENER; echo FIREWALL_OFF"
-  settle 8
-step "prove the unit is up before waiting on a port"
-  run "systemctl is-active ssh; ss -lnt 2>/dev/null | grep \":22 \" || echo NO_LISTENER"
-  settle 6
-# sshd IS ALREADY UP AND LISTENING - DO NOT TOUCH ITS CONFIG, AND DO NOT RESTART IT.
-#
-# MEASURED on run 46041880432's recording at 1900 s, on the terminal:
-#
-#	$ systemctl is-active ssh; ss -lnt | grep ":22 "
-#	active
-#	LISTEN 0 4096 0.0.0.0:22 0.0.0.0:*
-#	LISTEN 0 4096    [::]:22    [::]:*        <- sshd UP AND LISTENING
-#	$ echo PasswordAuthentication yes > .../99-vm.conf
-#	PPPpasswordAuthentication yes            <- caught the typing DOUBLING again
-#	$ sudo systemctl restart ssh
-#	Job for ssh.service failed because the control process exited with error code.
-#	failed
-#	NO_LISTENER                              <- the restart KILLED a working sshd
-#
-# So the daemon was healthy and this file's own config step broke it: a doubled
-# capital (`PPPpasswordAuthentication`) is an unknown directive, and `restart ssh`
-# then took the listener down for the rest of the stage. The whole point of the
-# drop-in was `PasswordAuthentication yes`, and sshd on this image ALREADY has it
-# (the image's own sshd_config ships `PasswordAuthentication yes` - the probe's
-# `unable to authenticate` on earlier runs was the missing HOST KEYS, which the
-# step above now makes).
-#
-# NOTHING IS WRITTEN HERE AND NOTHING IS RESTARTED. The step only reports what the
-# daemon is doing, so a healthy sshd cannot be killed by a typo in this file.
-step "the daemon that is already listening is left alone"
-  run "systemctl is-active ssh; ss -lnt | grep ':22 ' || echo NO_LISTENER"
-  settle 3
+step "run the ssh script as root"
+  run "printf '%s\\n' {{ password }} | sudo -S -p '' sh /tmp/s.sh"
+  settle 20
 
 
 step "wait for sshd"
